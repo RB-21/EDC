@@ -3,7 +3,8 @@
 @section('css_libraries')
     {{-- <link rel="stylesheet" href="{{ asset('selectize.js/dist/css/selectize.bootstrap4.css') }}"> --}}
     {{-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css"> --}}
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/bs4/dt-1.13.1/datatables.min.css" />
+    {{-- <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/bs4/dt-1.13.1/datatables.min.css" /> --}}
+    <link rel="stylesheet" type="text/css" href="{{ asset('datatables/css/jquery.dataTables.min.css') }}" />
 @endsection
 
 @section('title')
@@ -108,7 +109,8 @@
 @endsection
 
 @section('scripts')
-    <script type="text/javascript" src="https://cdn.datatables.net/v/bs4/dt-1.13.1/datatables.min.js"></script>
+    {{-- <script type="text/javascript" src="https://cdn.datatables.net/v/bs4/dt-1.13.1/datatables.min.js"></script> --}}
+    <script type="text/javascript" src="{{ asset('datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
         $(document).ready(function() {
             @foreach ($count_per_jenis_file_category as $item)

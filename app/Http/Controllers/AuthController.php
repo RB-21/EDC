@@ -194,7 +194,7 @@ class AuthController extends Controller
         $message_content .= "Terima Kasih.\n\n";
         $message_content .= "Silakan akses EDC: https://edc.ptpn4.com";
         $curl = curl_init();
-        $token = "KXCwBNP19Q3L5O7AlNR3IXGMlZnYjUyCZRkg1uH916uRpIwKaXlNCXc2QvoeeuzH";
+        $token = "jQwrbZEkzufjrqhBWNTg9gEDHFVMzSLaSg37I5UslLTLtDwuPPTTxaBsyz5RrgFU.hXitjokR";
         $payload = [
             "data" => [
                 [
@@ -356,7 +356,7 @@ class AuthController extends Controller
         $message_content .= "Terima Kasih.\n\n";
         $message_content .= "Silakan akses EDC: https://edc.ptpn4.com";
         $curl = curl_init();
-        $token = "KXCwBNP19Q3L5O7AlNR3IXGMlZnYjUyCZRkg1uH916uRpIwKaXlNCXc2QvoeeuzH";
+        $token = "jQwrbZEkzufjrqhBWNTg9gEDHFVMzSLaSg37I5UslLTLtDwuPPTTxaBsyz5RrgFU.hXitjokR";
         $payload = [
             "data" => [
                 [

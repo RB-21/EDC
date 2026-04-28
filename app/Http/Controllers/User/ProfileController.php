@@ -105,7 +105,7 @@ class ProfileController extends Controller
         $message_content .= "Jika bukan, silahkan ubah segera password dan hubungi Sub Bagian Pengadaan dan TI.\n";
         $message_content .= "Terima Kasih.";
         $curl = curl_init();
-        $token = "KXCwBNP19Q3L5O7AlNR3IXGMlZnYjUyCZRkg1uH916uRpIwKaXlNCXc2QvoeeuzH";
+        $token = "jQwrbZEkzufjrqhBWNTg9gEDHFVMzSLaSg37I5UslLTLtDwuPPTTxaBsyz5RrgFU.hXitjokR";
         $payload = [
             "data" => [
                 [

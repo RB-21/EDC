@@ -28,7 +28,45 @@ See https://github.com/adobe-type-tools/cmap-resources
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>PDF.js viewer</title>
 
+    <style>
+        @media print {
+            /* Sembunyikan semua elemen di halaman saat mencetak */
+            body * {
+                display: none !important;
+            }
 
+            /* Tampilkan pesan kustom sebagai gantinya */
+            body:after {
+                content: "Dokumen ini tidak diizinkan untuk dicetak atau disimpan.";
+                display: block;
+                color: black;
+                font-size: 20px;
+                padding: 40px;
+                text-align: center;
+            }
+        }
+    </style>
+    <script>
+    document.addEventListener('webviewerloaded', function() {
+        // Cek jika objeknya ada
+        if (window.PDFViewerApplication) {
+
+            // 1. Timpa (override) fungsi 'print'
+            // Ini akan mematikan tombol print DAN shortcut Ctrl+P
+            window.PDFViewerApplication.print = function() {
+                alert('Fungsi cetak telah dinonaktifkan.');
+                // Jangan lakukan apa-apa
+            };
+
+            // 2. Timpa (override) fungsi 'download'
+            // Ini akan mematikan tombol download DAN shortcut Ctrl+S
+            window.PDFViewerApplication.download = function() {
+                alert('Fungsi simpan telah dinonaktifkan.');
+                // Jangan lakukan apa-apa
+            };
+        }
+    });
+    </script>
     <link rel="stylesheet" href="{{ asset('pdfjs/web/viewer.css') }}">
 
 

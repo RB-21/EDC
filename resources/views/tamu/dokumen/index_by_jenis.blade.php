@@ -110,7 +110,8 @@
 @section('scripts')
     {{-- <script src="{{ asset('selectize.js/dist/js/selectize.min.js') }}"></script> --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
-    <script type="text/javascript" src="https://cdn.datatables.net/v/bs4/dt-1.13.1/datatables.min.js"></script>
+    {{-- <script type="text/javascript" src="https://cdn.datatables.net/v/bs4/dt-1.13.1/datatables.min.js"></script> --}}
+    <script type="text/javascript" src="{{ asset('datatables/js/jquery.dataTables.min.js') }}"></script>
     <script>
         function isNumber(evt) {
             evt = (evt) ? evt : window.event;

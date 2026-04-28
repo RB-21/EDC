@@ -1,18 +1,62 @@
+# Dependencies
 /node_modules
+/vendor
+
+# Laravel Environment
+.env
+.env.backup
+.env.production
+
+# Laravel Storage
 /public/build
 /public/hot
 /public/storage
 /storage/*.key
-/vendor
-.env
-.env.backup
-.env.production
+
+# Laravel Cache & Compiled
+/bootstrap/cache/*.php
+
+# Compiled Assets
+/public/build
+
+# Testing
 .phpunit.result.cache
-Homestead.json
-Homestead.yaml
-auth.json
-npm-debug.log
-yarn-error.log
+.phpunit.cache
+coverage/
+
+# IDE & Editors
 /.fleet
 /.idea
 /.vscode
+/.nova
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+*.sublime-project
+*.sublime-workspace
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Homestead / Vagrant
+Homestead.json
+Homestead.yaml
+
+# Auth
+auth.json
+
+# Logs
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+pnpm-debug.log
+
+# Misc
+*.cache
+.php-cs-fixer.cache

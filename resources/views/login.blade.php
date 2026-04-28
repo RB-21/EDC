@@ -6,15 +6,16 @@
   <title>Login &mdash; EDC</title>
 
   <!-- General CSS Files -->
+  {{-- <link rel="stylesheet" href="{{ asset('stisla-master') }}/assets/css/style.css"> --}}
+  <link rel="stylesheet" href="{{ asset('stisla-master') }}/assets/css/style2.css">
+  <link rel="stylesheet" href="{{ asset('stisla-master') }}/assets/css/components.css">
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+  <link rel="stylesheet" href="{{ asset('fontawesome-free-5.15.4-web/css/all.min.css') }}">
 
   <!-- CSS Libraries -->
-  <link rel="stylesheet" href="{{ asset('stisla-master') }}/node_modules/bootstrap-social/bootstrap-social.css">
+  {{-- <link rel="stylesheet" href="{{ asset('stisla-master') }}/node_modules/bootstrap-social/bootstrap-social.css"> --}}
 
   <!-- Template CSS -->
-  <link rel="stylesheet" href="{{ asset('stisla-master') }}/assets/css/style.css">
-  <link rel="stylesheet" href="{{ asset('stisla-master') }}/assets/css/components.css">
 
   <style>
     .love {
@@ -132,10 +133,11 @@
 
   <!-- Template JS File -->
   <script src="{{ asset('stisla-master') }}/assets/js/scripts.js"></script>
-  <script src="{{ asset('stisla-master') }}/assets/js/custom.js"></script>
+  {{-- <script src="{{ asset('stisla-master') }}/assets/js/custom.js"></script> --}}
 
   <!-- Page Specific JS File -->
-  <script src="sweetalert2.all.min.js"></script><script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  {{-- <script src="sweetalert2.all.min.js"></script> --}}
+  <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script>
     @if (Session::has('success'))
         $(document).ready(function(){
