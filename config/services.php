@@ -31,4 +31,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'rag' => [
+        'base_url' => env('RAG_SERVICE_URL', 'http://localhost:8100'),
+        'default_model' => env('RAG_DEFAULT_MODEL', 'gemini-2.0-flash'),
+        'available_models' => [
+            'gemini-2.0-flash',
+            'gemini-2.5-flash-preview-04-17',
+            'gemini-2.5-pro-preview-03-25',
+        ],
+    ],
+
 ];

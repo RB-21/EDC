@@ -390,6 +390,9 @@
                             <button class="btn btn-sm btn-info btn-edit">
                                 <i class="fas fa-edit"></i>
                             </button>
+                            <button data-id="${data.id}" data-title="${(data.judul || '').substring(0,50)}" class="btn btn-sm btn-outline-info btn-index-ai" title="Index ke AI RAG">
+                                <i class="fas fa-robot"></i>
+                            </button>
                             `
                         }
                     },
@@ -729,6 +732,99 @@
                 modalPerubahanHistory.modal('show')
                 tablePerubahanDokumenHistory.draw()
             })
+
+            // ===== RAG AI Indexing =====
+            let indexedDocIds = [];
+            const csrfToken = $('meta[name="csrf-token"]').attr('content');
+
+            // Load indexed doc_ids saat halaman dibuka
+            $.get("{{ route('admin.rag.indexed') }}", function(data) {
+                indexedDocIds = data.doc_ids || [];
+                $('.btn-index-ai').each(function() {
+                    const docId = parseInt($(this).data('id'));
+                    if (indexedDocIds.includes(docId)) {
+                        $(this).removeClass('btn-outline-info').addClass('btn-success')
+                               .html('<i class="fas fa-check"></i>');
+                    }
+                });
+            }).fail(function() {
+                console.log('RAG service tidak tersedia');
+            });
+
+            // Tandai setelah DataTable draw
+            tableUser.on('draw', function() {
+                $('.btn-index-ai').each(function() {
+                    const docId = parseInt($(this).data('id'));
+                    if (indexedDocIds.includes(docId)) {
+                        $(this).removeClass('btn-outline-info').addClass('btn-success')
+                               .html('<i class="fas fa-check"></i>');
+                    }
+                });
+            });
+
+            // Handler klik tombol Index AI
+            $(document).on('click', '.btn-index-ai', function() {
+                const btn = $(this);
+                const docId = btn.data('id');
+                const docTitle = btn.data('title');
+
+                if (btn.hasClass('btn-success')) {
+                    if (!confirm('Dokumen "' + docTitle + '" sudah di-index. Re-index ulang?')) return;
+                }
+
+                btn.prop('disabled', true)
+                   .removeClass('btn-outline-info btn-success btn-danger')
+                   .addClass('btn-warning')
+                   .html('<i class="fas fa-spinner fa-spin"></i>');
+
+                $.ajax({
+                    url: '/admin/rag/index/' + docId,
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrfToken },
+                    success: function(data) {
+                        if (data.error) {
+                            btn.prop('disabled', false)
+                               .removeClass('btn-warning').addClass('btn-danger')
+                               .html('<i class="fas fa-times"></i>');
+                            Swal.fire({ icon: 'error', title: 'Error', text: data.message });
+                            return;
+                        }
+                        pollIndexStatus(data.job_key, btn, docId);
+                    },
+                    error: function(xhr) {
+                        btn.prop('disabled', false)
+                           .removeClass('btn-warning').addClass('btn-danger')
+                           .html('<i class="fas fa-times"></i>');
+                        Swal.fire({ icon: 'error', title: 'Gagal', text: xhr.responseJSON?.detail || 'Gagal memulai indexing' });
+                    }
+                });
+            });
+
+            function pollIndexStatus(jobKey, btn, docId) {
+                const interval = setInterval(function() {
+                    $.get('/admin/rag/index/status/' + jobKey, function(data) {
+                        if (data.status === 'completed') {
+                            clearInterval(interval);
+                            btn.prop('disabled', false)
+                               .removeClass('btn-warning').addClass('btn-success')
+                               .html('<i class="fas fa-check"></i>');
+                            if (!indexedDocIds.includes(docId)) indexedDocIds.push(docId);
+                            Swal.fire({ icon: 'success', title: 'Berhasil', text: data.detail, timer: 3000, showConfirmButton: false });
+                        } else if (data.status === 'error') {
+                            clearInterval(interval);
+                            btn.prop('disabled', false)
+                               .removeClass('btn-warning').addClass('btn-danger')
+                               .html('<i class="fas fa-times"></i>');
+                            Swal.fire({ icon: 'error', title: 'Indexing Gagal', text: data.detail });
+                        }
+                    }).fail(function() {
+                        clearInterval(interval);
+                        btn.prop('disabled', false)
+                           .removeClass('btn-warning').addClass('btn-danger')
+                           .html('<i class="fas fa-times"></i>');
+                    });
+                }, 3000);
+            }
         })
     </script>
 @endsection

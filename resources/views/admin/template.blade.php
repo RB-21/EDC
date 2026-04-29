@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title') &mdash; @yield('page-name')</title>
 
   <!-- General CSS Files -->
@@ -307,6 +308,13 @@
                     <span>Master User</span>
                 </a>
             </li>
+              <li class="menu-header">AI</li>
+              <li class="nav-item {{ request()->routeIs('admin.rag.*') ? 'active' : '' }}">
+                <a class="nav-link" href="{{ route('admin.rag.chat') }}">
+                    <i class="fas fa-robot"></i>
+                    <span>AI Assistant</span>
+                </a>
+              </li>
             </ul>
 
             <div class="mt-4 mb-4 p-3 hide-sidebar-mini">

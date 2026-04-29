@@ -77,6 +77,15 @@ Route::middleware('auth')->group(function () {
             Route::get('', [ProfileController::class, 'index'])->name('index');
             Route::post('edit', [ProfileController::class, 'edit'])->name('edit');
         });
+
+        Route::prefix('rag')->name('rag.')->group(function () {
+            Route::get('/chat', [\App\Http\Controllers\Admin\RagController::class, 'chatPage'])->name('chat');
+            Route::post('/query', [\App\Http\Controllers\Admin\RagController::class, 'query'])->name('query');
+            Route::post('/index/{docId}', [\App\Http\Controllers\Admin\RagController::class, 'indexDocument'])->name('index');
+            Route::get('/index/status/{jobKey}', [\App\Http\Controllers\Admin\RagController::class, 'indexStatus'])->name('index.status');
+            Route::delete('/index/{docId}', [\App\Http\Controllers\Admin\RagController::class, 'deleteIndex'])->name('delete');
+            Route::get('/indexed', [\App\Http\Controllers\Admin\RagController::class, 'indexedDocuments'])->name('indexed');
+        });
     });
 
     Route::middleware('auth.role:operator')->prefix('operator')->name('operator.')->group(function () {
