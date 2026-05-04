@@ -146,8 +146,33 @@ class RagService
             $response = Http::timeout(5)
                 ->get("{$this->baseUrl}/health");
 
-            return $response->json() ?? ['status' => 'offline', 'message' => 'Empty response'];
+            if ($response->successful()) {
+                return $response->json() ?? ['status' => 'offline', 'message' => 'Empty response'];
+            }
+
+            // Fallback untuk versi service yang belum punya endpoint /health
+            $fallback = Http::timeout(5)->get("{$this->baseUrl}/");
+            if ($fallback->successful()) {
+                return [
+                    'status' => 'healthy',
+                    'message' => 'RAG service reachable (fallback from root endpoint).',
+                ];
+            }
+
+            return ['status' => 'offline', 'message' => 'Health check endpoint unavailable'];
         } catch (\Exception $e) {
+            try {
+                $fallback = Http::timeout(5)->get("{$this->baseUrl}/");
+                if ($fallback->successful()) {
+                    return [
+                        'status' => 'healthy',
+                        'message' => 'RAG service reachable (fallback from root endpoint).',
+                    ];
+                }
+            } catch (\Exception $ignored) {
+                // Ignore fallback error and return original message
+            }
+
             return ['status' => 'offline', 'message' => $e->getMessage()];
         }
     }
