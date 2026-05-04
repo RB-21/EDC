@@ -33,7 +33,7 @@
         /* ===== Chat Messages ===== */
         .chat-message {
             display: flex;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             animation: fadeInUp 0.3s ease-out;
         }
 
@@ -67,10 +67,10 @@
 
         .chat-bubble {
             max-width: 75%;
-            padding: 12px 16px;
+            padding: 10px 14px;
             border-radius: 16px;
             font-size: 13.5px;
-            line-height: 1.6;
+            line-height: 1.42;
             word-wrap: break-word;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
@@ -96,16 +96,16 @@
 
         .chat-bubble .answer-text ul,
         .chat-bubble .answer-text ol {
-            margin: 6px 0 6px 16px;
+            margin: 4px 0 4px 16px;
             padding: 0;
         }
 
         .chat-bubble .answer-text li {
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .chat-bubble .answer-text p {
-            margin: 0 0 8px;
+            margin: 0 0 4px;
         }
 
         .chat-bubble .answer-text p:last-child {
@@ -118,7 +118,7 @@
         .chat-bubble .answer-text h4 {
             font-size: 13.5px;
             font-weight: 700;
-            margin: 10px 0 4px;
+            margin: 6px 0 3px;
             color: #1a202c;
         }
 
@@ -278,13 +278,15 @@
             background: #1f2937;
             color: #fff;
             border-radius: 999px;
-            padding: 4px 10px;
+            padding: 4px 12px;
+            font-weight: 600;
         }
 
         .token-usage {
-            margin-top: 8px;
+            margin-top: 6px;
             font-size: 10px;
             color: #6b7280;
+            line-height: 1.35;
         }
 
         /* ===== Status Badge ===== */
@@ -340,6 +342,15 @@
             animation-delay: 0.4s;
         }
 
+        .loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #d1d5db;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
         /* ===== Animations ===== */
         @keyframes fadeInUp {
             from {
@@ -360,6 +371,11 @@
         @keyframes bounce {
             0%, 80%, 100% { transform: scale(0); }
             40% { transform: scale(1); }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         /* ===== Card Styling ===== */
@@ -460,10 +476,9 @@
                             @endforeach
                         </select>
                         <span class="token-balance" id="tokenBalanceBadge">
-                            Token: {{ number_format($tokenBalance ?? 0, 0, ',', '.') }}
+                            Token Balance: {{ number_format($tokenBalance ?? 0, 0, ',', '.') }}
                         </span>
                     </div>
-
                     {{-- Chat Messages --}}
                     <div class="chat-container" id="chatContainer">
                         <div class="chat-message ai">
@@ -519,6 +534,8 @@
         const deleteSessionBtn = $('#deleteSessionBtn');
         const chatHistory = [];
         const MAX_HISTORY = 5;
+        const SOURCE_MIN_SCORE_RATIO = 0.70;
+        const SOURCE_MIN_SCORE_ABSOLUTE = 0.0;
         let currentSessionId = null;
         let pendingQuestion = null;
 
@@ -549,7 +566,7 @@
 
         function updateTokenBalance(balance) {
             if (typeof balance === 'number') {
-                tokenBalanceBadge.text('Token: ' + balance.toLocaleString('id-ID'));
+                tokenBalanceBadge.text('Token Balance: ' + balance.toLocaleString('id-ID'));
             }
         }
 
@@ -564,7 +581,11 @@
 
         function formatAnswer(text) {
             if (!text) return '';
-            let html = $('<div/>').text(text).html();
+            const normalizedText = String(text).replace(
+                /^(\d+)\.\s+(\d{1,2}\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\b.*)$/gim,
+                '- $2'
+            );
+            let html = $('<div/>').text(normalizedText).html();
             html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
             html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
@@ -645,10 +666,54 @@
             return id;
         }
 
+        function showHistoryLoading() {
+            chatContainer.html(
+                '<div class="chat-message ai" id="history-loading">' +
+                '  <div class="chat-avatar"><i class="fas fa-robot"></i></div>' +
+                '  <div class="chat-bubble d-flex align-items-center">' +
+                '    <span class="loading-spinner mr-2"></span>' +
+                '    <span class="text-muted">Memuat riwayat percakapan...</span>' +
+                '  </div>' +
+                '</div>'
+            );
+            scrollToBottom();
+        }
+
+        function filterRelevantSources(sources) {
+            if (!Array.isArray(sources) || sources.length === 0) return [];
+
+            const scored = sources
+                .map(function(source) {
+                    const scoreNumber = Number(source.score);
+                    return {
+                        source: source,
+                        score: Number.isFinite(scoreNumber) ? scoreNumber : null
+                    };
+                });
+
+            const withScore = scored.filter(function(item) {
+                return item.score !== null;
+            });
+
+            if (withScore.length === 0) {
+                return sources;
+            }
+
+            const maxScore = Math.max.apply(null, withScore.map(function(item) { return item.score; }));
+            const cutoff = Math.max(SOURCE_MIN_SCORE_ABSOLUTE, maxScore * SOURCE_MIN_SCORE_RATIO);
+            const filtered = withScore
+                .filter(function(item) { return item.score >= cutoff; })
+                .map(function(item) { return item.source; });
+
+            if (filtered.length > 0) return filtered;
+            return [withScore.sort(function(a, b) { return b.score - a.score; })[0].source];
+        }
+
         function formatSources(sources) {
-            if (!sources || sources.length === 0) return '';
+            const relevantSources = filterRelevantSources(sources);
+            if (!relevantSources || relevantSources.length === 0) return '';
             const groupedSources = {};
-            sources.forEach(function(s) {
+            relevantSources.forEach(function(s) {
                 const key = s.doc_id || s.filename;
                 if (!groupedSources[key]) {
                     groupedSources[key] = {
@@ -720,6 +785,8 @@
         }
 
         function loadSessions(selectSessionId) {
+            sessionSelect.prop('disabled', true);
+            sessionSelect.empty().append('<option value="">Memuat riwayat...</option>');
             $.getJSON(sessionsUrl, function(resp) {
                 const sessions = resp.sessions || [];
                 const keepId = selectSessionId || currentSessionId;
@@ -739,6 +806,8 @@
                 } else {
                     setActiveSession(null);
                 }
+            }).always(function() {
+                sessionSelect.prop('disabled', false);
             });
         }
 
@@ -748,6 +817,12 @@
                 resetWelcomeMessage();
                 return;
             }
+
+            showHistoryLoading();
+            sessionSelect.prop('disabled', true);
+            sendBtn.prop('disabled', true);
+            questionInput.prop('disabled', true);
+            deleteSessionBtn.prop('disabled', true);
 
             $.getJSON(sessionBaseUrl + '/' + sessionId + '/messages', function(resp) {
                 resetWelcomeMessage();
@@ -767,6 +842,11 @@
             }).fail(function() {
                 setActiveSession(null);
                 resetWelcomeMessage();
+            }).always(function() {
+                sessionSelect.prop('disabled', false);
+                sendBtn.prop('disabled', false);
+                questionInput.prop('disabled', false);
+                deleteSessionBtn.prop('disabled', !currentSessionId);
             });
         }
 

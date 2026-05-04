@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AiChatMessage;
 use App\Models\AiChatSession;
+use App\Models\AiSetting;
 use App\Models\Dokumen;
 use App\Services\RagService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class RagController extends Controller
@@ -38,6 +40,60 @@ class RagController extends Controller
         $tokenBalance = (int) ($user->ai_token_balance ?? 0);
 
         return view('admin.rag.chat', compact('health', 'model', 'availableModels', 'tokenBalance'));
+    }
+
+    /**
+     * Halaman pengaturan prompt RAG (admin).
+     */
+    public function promptSettingsPage()
+    {
+        $promptTemplate = $this->getRagPromptTemplate();
+
+        return view('admin.rag.settings', [
+            'promptTemplate' => $promptTemplate,
+        ]);
+    }
+
+    /**
+     * Simpan pengaturan prompt RAG.
+     */
+    public function updatePromptSettings(Request $request)
+    {
+        if (!Schema::hasTable('ai_settings')) {
+            return back()->with([
+                'success' => false,
+                'message' => 'Tabel ai_settings belum tersedia. Jalankan migration atau SQL docs terlebih dahulu.',
+            ]);
+        }
+
+        $request->validate([
+            'prompt_template' => 'required|string|min:50|max:60000',
+        ]);
+
+        $template = (string) $request->input('prompt_template');
+
+        // Wajib ada placeholder agar template valid untuk runtime.
+        foreach (['{{CONTEXT_BLOCK}}', '{{QUESTION}}'] as $requiredPlaceholder) {
+            if (mb_strpos($template, $requiredPlaceholder) === false) {
+                return back()->with([
+                    'success' => false,
+                    'message' => "Template wajib memuat placeholder {$requiredPlaceholder}.",
+                ])->withInput();
+            }
+        }
+
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_prompt_template'],
+            [
+                'value' => $template,
+                'description' => 'Template prompt utama untuk RAG generation',
+            ]
+        );
+
+        return back()->with([
+            'success' => true,
+            'message' => 'Template prompt RAG berhasil disimpan.',
+        ]);
     }
 
     /**
@@ -198,20 +254,16 @@ class RagController extends Controller
         try {
             $question = $request->input('question');
             $session = $this->resolveSession($user->id, $request->input('session_id'), $question, $selectedModel);
-
-            // Ambil konteks daftar dokumen ter-index agar AI tidak tampilkan nama file hash
-            $docCatalog = $this->getIndexedDocCatalog();
-            $questionWithCatalog = $question;
-            if (!empty($docCatalog)) {
-                $questionWithCatalog = $docCatalog . "\n\n" . $question;
-            }
+            $promptTemplate = $this->getRagPromptTemplate();
 
             $result = $this->ragService->query(
-                $questionWithCatalog,
+                $question,
                 $request->input('jenis_file'),
                 $request->input('bagian'),
                 $request->input('doc_id') ? (int) $request->input('doc_id') : null,
-                $selectedModel
+                $selectedModel,
+                null,
+                $promptTemplate
             );
 
             if (($result['error'] ?? false) === true) {
@@ -418,5 +470,21 @@ class RagController extends Controller
             'model' => $model,
             'last_message_at' => now(),
         ]);
+    }
+
+    private function getRagPromptTemplate(): string
+    {
+        $default = (string) config('services.rag.default_prompt_template', '');
+        $fromDb = (string) AiSetting::getValue('rag_prompt_template', $default);
+
+        if (trim($fromDb) === '') {
+            return $default;
+        }
+
+        if (mb_strpos($fromDb, '{{CONTEXT_BLOCK}}') === false || mb_strpos($fromDb, '{{QUESTION}}') === false) {
+            return $default;
+        }
+
+        return $fromDb;
     }
 }

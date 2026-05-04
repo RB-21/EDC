@@ -90,3 +90,127 @@ Verification:
 
 Risks:
 - Perlu refresh browser untuk melihat layout final.
+
+---
+
+## 2026-05-04 15:25-15:45 (Asia/Jakarta)
+Scope:
+- Memperjelas label token di UI menjadi `Token Balance`
+- Merapatkan spacing teks chat agar tampilan jawaban lebih compact
+- Memfilter sumber dokumen dengan similarity rendah agar tidak ikut tampil
+  di daftar sumber
+
+Files:
+- `resources/views/admin/rag/chat.blade.php`
+- `../EDC AI RAG/main.py`
+- `../EDC AI RAG/app/config.py`
+
+Verification:
+- Python syntax check lulus untuk `main.py` dan `app/config.py`
+- Diff UI menunjukkan label token dan typography spacing sudah diperbarui
+- Filter sumber aktif di backend (retrieval filtering) dan frontend (guard rendering)
+
+Risks:
+- Threshold relevance default (ratio 0.70) mungkin perlu tuning berdasarkan pola query riil pengguna.
+
+---
+
+## 2026-05-04 16:05-16:35 (Asia/Jakarta)
+Scope:
+- Menambahkan pengaturan instruction RAG langsung dari UI chat EDC
+- Memastikan jawaban AI menampilkan ringkasan dokumen utama
+- Memperbaiki relevansi source dokumen agar tidak muncul dokumen lain yang tidak terkait
+
+Root cause yang ditemukan:
+- Pertanyaan user sebelumnya disisipi katalog semua dokumen ter-index, sehingga retrieval bias
+  dan token prompt membengkak.
+
+Perbaikan:
+- Hapus injeksi katalog dokumen dari pertanyaan query (`RagController`).
+- Tambah field `instruction` dari UI -> Laravel -> FastAPI -> prompt generator.
+- Prompt generator mewajibkan blok `Ringkasan Dokumen`.
+- Batasi source/context ke dokumen unik utama (`source_max_documents=1`) setelah similarity filter.
+
+Files:
+- `app/Http/Controllers/Admin/RagController.php`
+- `app/Services/RagService.php`
+- `config/services.php`
+- `resources/views/admin/rag/chat.blade.php`
+- `../EDC AI RAG/app/models.py`
+- `../EDC AI RAG/app/embedding.py`
+- `../EDC AI RAG/app/config.py`
+- `../EDC AI RAG/main.py`
+
+Verification:
+- `php -l` lulus untuk controller + service.
+- Python syntax check lulus untuk `main.py`, `embedding.py`, `models.py`, `config.py`.
+
+Risks:
+- Karena `source_max_documents=1`, jawaban pertanyaan komparatif multi-dokumen bisa jadi terlalu fokus ke satu dokumen.
+
+---
+
+## 2026-05-04 16:40-17:10 (Asia/Jakarta)
+Scope:
+- Mengubah mekanisme agar template prompt utama RAG (yang sebelumnya hardcoded di `embedding.py`)
+  bisa diedit dari pengaturan admin EDC.
+- Menghapus input instruction dari halaman chat user agar kontrol prompt terpusat di admin settings.
+
+Perubahan utama:
+- Tambah tabel settings AI:
+  - migration Laravel: `database/migrations/2026_05_04_170000_create_ai_settings_table.php`
+  - SQL manual: `docs/rag_fastapi/sql/2026_05_04_ai_prompt_settings.sql`
+- Tambah model `AiSetting` untuk key-value prompt config.
+- Tambah halaman admin:
+  - `GET /admin/rag/settings`
+  - `POST /admin/rag/settings`
+  - view: `resources/views/admin/rag/settings.blade.php`
+- Query flow EDC sekarang mengirim `prompt_template` ke FastAPI.
+- FastAPI `generate_answer` kini menerima `prompt_template` dan merender placeholder:
+  - `{{CONTEXT_BLOCK}}`
+  - `{{QUESTION}}`
+  - optional `{{INSTRUCTION}}`
+
+Files:
+- `app/Models/AiSetting.php`
+- `database/migrations/2026_05_04_170000_create_ai_settings_table.php`
+- `app/Http/Controllers/Admin/RagController.php`
+- `app/Services/RagService.php`
+- `routes/web.php`
+- `resources/views/admin/rag/settings.blade.php`
+- `resources/views/admin/rag/chat.blade.php`
+- `resources/views/admin/template.blade.php`
+- `config/services.php`
+- `../EDC AI RAG/app/models.py`
+- `../EDC AI RAG/main.py`
+- `../EDC AI RAG/app/embedding.py`
+- `docs/rag_fastapi/sql/2026_05_04_ai_prompt_settings.sql`
+
+Verification:
+- `php -l` lulus untuk controller/service/model baru.
+- Python syntax check lulus untuk `embedding.py`, `main.py`, `models.py`.
+
+Risks:
+- Template prompt yang diubah admin bisa menurunkan kualitas jawaban jika struktur terlalu jauh dari default.
+- Placeholder wajib (`{{CONTEXT_BLOCK}}`, `{{QUESTION}}`) sudah divalidasi saat simpan.
+
+---
+
+## 2026-05-04 17:15-17:30 (Asia/Jakarta)
+Scope:
+- Menambahkan indikator loading saat user memilih riwayat percakapan.
+- Menormalkan tampilan daftar tanggal agar tidak terlihat nomor ganda seperti `1. 1 Januari`.
+
+Perbaikan:
+- `sessionSelect` kini menampilkan state "Memuat riwayat..." saat fetch daftar session.
+- Saat load isi session, chat menampilkan bubble loading dengan spinner
+  "Memuat riwayat percakapan...".
+- Input chat dan aksi session dinonaktifkan sementara untuk mencegah interaksi awkward.
+- Formatter jawaban menormalisasi pola daftar tanggal Indonesia dari format
+  `N. DD <Bulan>` menjadi bullet agar tidak terbaca dobel nomor.
+
+Files:
+- `resources/views/admin/rag/chat.blade.php`
+
+Verification:
+- Script front-end berhasil diupdate tanpa error syntax pada struktur Blade/JS.

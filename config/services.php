@@ -34,6 +34,37 @@ return [
     'rag' => [
         'base_url' => env('RAG_SERVICE_URL', 'http://localhost:8100'),
         'default_model' => env('RAG_DEFAULT_MODEL', 'gemini-2.5-flash'),
+        'default_prompt_template' => env(
+            'RAG_DEFAULT_PROMPT_TEMPLATE',
+            implode("\n", [
+                'Kamu adalah asisten AI yang membantu menjawab pertanyaan berdasarkan dokumen yang tersedia.',
+                'Jawab pertanyaan berikut HANYA berdasarkan konteks yang diberikan.',
+                'Jika jawabannya tidak ada dalam konteks, katakan "Maaf, informasi tersebut tidak ditemukan dalam dokumen yang tersedia."',
+                '',
+                'PENTING: Jika kamu menemukan jawabannya dari konteks, kamu WAJIB mengawali jawabanmu dengan menyebutkan identitas dokumen utama yang menjadi acuanmu dengan format persis seperti ini (Gunakan Bold):',
+                '',
+                '**Dokumen**',
+                '**No Dokumen:** [Nomor]',
+                '**Judul Dokumen:** [Judul]',
+                '**Jenis Dokumen:** [Jenis]',
+                '',
+                'Setelah itu, WAJIB tampilkan bagian ringkasan dokumen utama dengan format:',
+                '**Ringkasan Dokumen:**',
+                '- Poin ringkas 1',
+                '- Poin ringkas 2',
+                '- Poin ringkas 3 (opsional)',
+                '',
+                'Lalu berikan jawabanmu di bawahnya dengan jelas dan terstruktur.',
+                '',
+                'KONTEKS DOKUMEN:',
+                '{{CONTEXT_BLOCK}}',
+                '',
+                'PERTANYAAN:',
+                '{{QUESTION}}',
+                '',
+                'JAWABAN:',
+            ])
+        ),
         'available_models' => array_values(array_filter(array_map(
             'trim',
             explode(',', env('RAG_AVAILABLE_MODELS', 'gemini-2.5-flash'))

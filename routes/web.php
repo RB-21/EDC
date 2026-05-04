@@ -80,6 +80,8 @@ Route::middleware('auth')->group(function () {
 
         Route::prefix('rag')->name('rag.')->group(function () {
             Route::get('/chat', [\App\Http\Controllers\Admin\RagController::class, 'chatPage'])->name('chat');
+            Route::get('/settings', [\App\Http\Controllers\Admin\RagController::class, 'promptSettingsPage'])->name('settings');
+            Route::post('/settings', [\App\Http\Controllers\Admin\RagController::class, 'updatePromptSettings'])->name('settings.update');
             Route::post('/query', [\App\Http\Controllers\Admin\RagController::class, 'query'])->name('query');
             Route::get('/sessions', [\App\Http\Controllers\Admin\RagController::class, 'sessions'])->name('sessions');
             Route::post('/sessions', [\App\Http\Controllers\Admin\RagController::class, 'createSession'])->name('sessions.create');

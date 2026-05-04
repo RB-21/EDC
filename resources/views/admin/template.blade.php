@@ -309,10 +309,16 @@
                 </a>
             </li>
               <li class="menu-header">AI</li>
-              <li class="nav-item {{ request()->routeIs('admin.rag.*') ? 'active' : '' }}">
+              <li class="nav-item {{ request()->routeIs('admin.rag.chat') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('admin.rag.chat') }}">
                     <i class="fas fa-robot"></i>
                     <span>AI Assistant</span>
+                </a>
+              </li>
+              <li class="nav-item {{ request()->routeIs('admin.rag.settings') ? 'active' : '' }}">
+                <a class="nav-link" href="{{ route('admin.rag.settings') }}">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>AI Prompt Settings</span>
                 </a>
               </li>
             </ul>
