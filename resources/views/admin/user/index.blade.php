@@ -184,6 +184,24 @@
                     </div>
                     <div class="row">
                         <div class="col-sm-12 col-md-6">
+                            <label class="form-label">Saldo Token AI</label>
+                            <div class="input-group mb-3">
+                                <input type="number" class="form-control" name="ai_token_balance" min="0" value="100000">
+                            </div>
+                        </div>
+                        <div class="col-sm-12 col-md-6">
+                            <label class="form-label">Model AI Diizinkan</label>
+                            <div class="input-group mb-3">
+                                <select name="ai_allowed_models[]" class="form-control" data-style="p-0" multiple>
+                                    @foreach ($rag_models as $ragModel)
+                                        <option value="{{ $ragModel }}" selected>{{ $ragModel }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-12 col-md-6">
                             <label for="NIK" class="form-label">Aktif Dari</label>
                             <div class="input-group mb-3">
                                 {{-- <span class="input-group-text" id="basic-addon3">https://example.com/users/</span> --}}
@@ -337,6 +355,24 @@
                                     <option value="">-- Pilih Jenis Aksi --</option>
                                     @foreach ($master_jenis_aksi as $item)
                                         <option value="{{ $item->id }}">{{ $item->nama }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-12 col-md-6">
+                            <label class="form-label">Saldo Token AI</label>
+                            <div class="input-group mb-3">
+                                <input type="number" class="form-control" name="ai_token_balance" min="0" value="100000">
+                            </div>
+                        </div>
+                        <div class="col-sm-12 col-md-6">
+                            <label class="form-label">Model AI Diizinkan</label>
+                            <div class="input-group mb-3">
+                                <select name="ai_allowed_models[]" class="form-control" data-style="p-0" multiple>
+                                    @foreach ($rag_models as $ragModel)
+                                        <option value="{{ $ragModel }}">{{ $ragModel }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -779,6 +815,8 @@
                 editUserModal.find('select[name="level"]').selectpicker('val', dataRow.level.level)
                 editUserModal.find('select[name="jenis_file[]"]').selectpicker('val', dataRow.jenis_file ? dataRow.jenis_file.split(',') : null)
                 editUserModal.find('select[name="jenis_aksi[]"]').selectpicker('val', dataRow.jenis_aksi ? dataRow.jenis_aksi.split(',') : null)
+                editUserModal.find('input[name="ai_token_balance"]').val(dataRow.ai_token_balance ?? 0)
+                editUserModal.find('select[name="ai_allowed_models[]"]').selectpicker('val', dataRow.ai_allowed_models ? dataRow.ai_allowed_models.split(',') : null)
                 editUserModal.find('input[name="active_from"]').val(dataRow.active_from)
                 editUserModal.find('input[name="active_to"]').val(dataRow.active_to)
                 editUserModal.modal('show')

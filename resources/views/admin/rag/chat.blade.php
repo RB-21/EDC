@@ -7,12 +7,14 @@
     <style>
         /* ===== Chat Container ===== */
         .chat-container {
-            height: 520px;
+            height: auto;
+            min-height: 380px;
             overflow-y: auto;
             padding: 20px;
             background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
             border-radius: 0;
             scroll-behavior: smooth;
+            flex: 1 1 auto;
         }
 
         .chat-container::-webkit-scrollbar {
@@ -248,17 +250,41 @@
             transform: none;
         }
 
-        /* ===== Filter Area ===== */
-        .chat-filters {
+        .chat-toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
             padding: 10px 20px;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
+            background: #eef2f7;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
         }
 
-        .chat-filters .form-control {
+        .chat-toolbar .form-control {
+            max-width: 320px;
             font-size: 12px;
             border-radius: 8px;
-            border: 1px solid #dee2e6;
+        }
+
+        .chat-toolbar .btn {
+            font-size: 12px;
+            border-radius: 8px;
+        }
+
+        .token-balance {
+            margin-left: auto;
+            font-size: 12px;
+            background: #1f2937;
+            color: #fff;
+            border-radius: 999px;
+            padding: 4px 10px;
+        }
+
+        .token-usage {
+            margin-top: 8px;
+            font-size: 10px;
+            color: #6b7280;
         }
 
         /* ===== Status Badge ===== */
@@ -342,6 +368,9 @@
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            height: calc(100vh - 150px);
+            display: flex;
+            flex-direction: column;
         }
 
         .card-chat .card-header {
@@ -386,14 +415,14 @@
             <h1>AI Document Assistant</h1>
         </div>
         <div class="row">
-            <div class="col-md-10 offset-md-1 col-lg-8 offset-lg-2">
+            <div class="col-12">
                 <div class="card card-chat">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div>
                             <h4 class="d-inline"><i class="fas fa-robot mr-2"></i> EDC AI Assistant</h4>
                             <span class="model-badge" id="modelBadge" title="AI Model">
                                 <i class="fas fa-microchip"></i>
-                                <span id="modelName">{{ $model ?? 'gemini-2.0-flash' }}</span>
+                                <span id="modelName">{{ $model ?? 'gemini-2.5-flash' }}</span>
                             </span>
                         </div>
                         <div class="status-badge">
@@ -410,6 +439,31 @@
                         </div>
                     </div>
 
+                    <div class="chat-toolbar">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="newChatBtn">
+                            <i class="fas fa-plus-circle mr-1"></i> Chat Baru
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshSessionBtn">
+                            <i class="fas fa-sync-alt mr-1"></i> Refresh
+                        </button>
+                        <select class="form-control form-control-sm" id="sessionSelect" title="Pilih Riwayat Chat">
+                            <option value="">-- Riwayat Percakapan --</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="deleteSessionBtn" disabled>
+                            <i class="fas fa-trash mr-1"></i> Hapus
+                        </button>
+                        <select class="form-control form-control-sm" id="modelSelect" title="Pilih Model AI">
+                            @foreach($availableModels as $modelOption)
+                                <option value="{{ $modelOption }}" {{ $modelOption === ($model ?? 'gemini-2.5-flash') ? 'selected' : '' }}>
+                                    {{ $modelOption }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="token-balance" id="tokenBalanceBadge">
+                            Token: {{ number_format($tokenBalance ?? 0, 0, ',', '.') }}
+                        </span>
+                    </div>
+
                     {{-- Chat Messages --}}
                     <div class="chat-container" id="chatContainer">
                         <div class="chat-message ai">
@@ -421,43 +475,6 @@
                                 dokumen yang sudah di-index seperti <strong>SOP, SE, SK, IK</strong>, dan lainnya.
                                 <br><br>
                                 Silakan ketik pertanyaan Anda di bawah. 👇
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Filter Area --}}
-                    <div class="chat-filters">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <select class="form-control form-control-sm" id="filterJenis">
-                                    <option value="">Semua Jenis Dokumen</option>
-                                    <option value="sop">SOP — Standar Operasional Procedure</option>
-                                    <option value="ik">IK — Instruksi Kerja</option>
-                                    <option value="sk">SK — Surat Keputusan</option>
-                                    <option value="se">SE — Surat Edaran</option>
-                                    <option value="si">SI — Surat Instruksi</option>
-                                    <option value="ph">PH — Pedoman Holding</option>
-                                    <option value="sp">SP — Sertifikasi Perusahaan</option>
-                                    <option value="ll">LL — Dokumen Eksternal</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" class="form-control form-control-sm"
-                                       id="filterBagian" placeholder="Filter bagian (opsional)">
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-control form-control-sm" id="modelSelect" title="Pilih Model AI">
-                                    @foreach($availableModels as $modelOption)
-                                        <option value="{{ $modelOption }}" {{ $modelOption === ($model ?? 'gemini-2.0-flash') ? 'selected' : '' }}>
-                                            {{ $modelOption }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-2 text-right">
-                                <small class="text-muted" id="filterInfo">
-                                    <i class="fas fa-filter"></i> Filter
-                                </small>
                             </div>
                         </div>
                     </div>
@@ -488,322 +505,406 @@
 @endsection
 
 @section('scripts')
-    <script>
-        $(document).ready(function() {
-            const chatContainer = $('#chatContainer');
-            const questionInput = $('#questionInput');
-            const sendBtn = $('#sendBtn');
-            const csrfToken = $('meta[name="csrf-token"]').attr('content');
+<script>
+    $(document).ready(function() {
+        const chatContainer = $('#chatContainer');
+        const questionInput = $('#questionInput');
+        const sendBtn = $('#sendBtn');
+        const csrfToken = $('meta[name="csrf-token"]').attr('content');
+        const sessionsUrl = "{{ route('admin.rag.sessions') }}";
+        const queryUrl = "{{ route('admin.rag.query') }}";
+        const sessionBaseUrl = "{{ url('/admin/rag/sessions') }}";
+        const sessionSelect = $('#sessionSelect');
+        const tokenBalanceBadge = $('#tokenBalanceBadge');
+        const deleteSessionBtn = $('#deleteSessionBtn');
+        const chatHistory = [];
+        const MAX_HISTORY = 5;
+        let currentSessionId = null;
+        let pendingQuestion = null;
 
-            // ===== Conversation History =====
-            // Menyimpan riwayat percakapan agar pertanyaan lanjutan punya konteks
-            const chatHistory = [];
-            const MAX_HISTORY = 5; // Maksimal 5 pasang Q&A terakhir
+        function buildContextualQuestion(currentQuestion) {
+            if (chatHistory.length === 0) return currentQuestion;
 
-            // Bangun pertanyaan dengan konteks history
-            function buildContextualQuestion(currentQuestion) {
-                if (chatHistory.length === 0) {
-                    return currentQuestion;
-                }
-
-                // Ambil N history terakhir
-                const recentHistory = chatHistory.slice(-MAX_HISTORY);
-
-                let context = '[Konteks percakapan sebelumnya]\n';
-                recentHistory.forEach(function(h) {
-                    context += 'User: ' + h.question + '\n';
-                    // Batasi panjang jawaban di konteks agar tidak terlalu besar
-                    const shortAnswer = h.answer.length > 500
-                        ? h.answer.substring(0, 500) + '...'
-                        : h.answer;
-                    context += 'AI: ' + shortAnswer + '\n\n';
-                });
-
-                context += '[Pertanyaan saat ini]\n' + currentQuestion;
-                return context;
-            }
-
-            // Update model badge when select changes
-            $('#modelSelect').on('change', function() {
-                $('#modelName').text($(this).val());
+            const recentHistory = chatHistory.slice(-MAX_HISTORY);
+            let context = '[Konteks percakapan sebelumnya]\n';
+            recentHistory.forEach(function(h) {
+                context += 'User: ' + h.question + '\n';
+                const shortAnswer = h.answer.length > 500 ? h.answer.substring(0, 500) + '...' : h.answer;
+                context += 'AI: ' + shortAnswer + '\n\n';
             });
+            context += '[Pertanyaan saat ini]\n' + currentQuestion;
+            return context;
+        }
 
-            // ===== Markdown-like formatter =====
-            function formatAnswer(text) {
-                if (!text) return '';
+        function resetWelcomeMessage() {
+            chatContainer.html(
+                '<div class="chat-message ai">' +
+                '  <div class="chat-avatar"><i class="fas fa-robot"></i></div>' +
+                '  <div class="chat-bubble">Halo! Saya <strong>AI Assistant EDC</strong>. Saya siap membantu pertanyaan dokumen Anda.</div>' +
+                '</div>'
+            );
+            chatHistory.length = 0;
+            pendingQuestion = null;
+        }
 
-                // Escape HTML first
-                let html = $('<div/>').text(text).html();
+        function updateTokenBalance(balance) {
+            if (typeof balance === 'number') {
+                tokenBalanceBadge.text('Token: ' + balance.toLocaleString('id-ID'));
+            }
+        }
 
-                // Bold: **text** or __text__
-                html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-                html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+        function setActiveSession(sessionId) {
+            currentSessionId = sessionId || null;
+            deleteSessionBtn.prop('disabled', !currentSessionId);
+        }
 
-                // Italic: *text* or _text_ (but not inside bold)
-                html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+        $('#modelSelect').on('change', function() {
+            $('#modelName').text($(this).val());
+        });
 
-                // Inline code: `text`
-                html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+        function formatAnswer(text) {
+            if (!text) return '';
+            let html = $('<div/>').text(text).html();
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+            html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+            html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+            html = html.replace(/^#{1,4}\s+(.+)$/gm, '<h4>$1</h4>');
 
-                // Headers: ### text → <h4>
-                html = html.replace(/^#{1,4}\s+(.+)$/gm, '<h4>$1</h4>');
+            const lines = html.split('\n');
+            let result = [];
+            let inList = false;
+            let listType = null;
 
-                // Split into lines for list processing
-                const lines = html.split('\n');
-                let result = [];
-                let inList = false;
-                let listType = null; // 'ul' or 'ol'
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                const ulMatch = line.match(/^[-*]\s+(.+)$/);
+                const olMatch = line.match(/^\d+\.\s+(.+)$/);
 
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-
-                    // Unordered list: - item or * item
-                    const ulMatch = line.match(/^[-*]\s+(.+)$/);
-                    // Ordered list: 1. item, 2. item
-                    const olMatch = line.match(/^\d+\.\s+(.+)$/);
-
-                    if (ulMatch) {
-                        if (!inList || listType !== 'ul') {
-                            if (inList) result.push('</' + listType + '>');
-                            result.push('<ul>');
-                            inList = true;
-                            listType = 'ul';
-                        }
-                        result.push('<li>' + ulMatch[1] + '</li>');
-                    } else if (olMatch) {
-                        if (!inList || listType !== 'ol') {
-                            if (inList) result.push('</' + listType + '>');
-                            result.push('<ol>');
-                            inList = true;
-                            listType = 'ol';
-                        }
-                        result.push('<li>' + olMatch[1] + '</li>');
+                if (ulMatch) {
+                    if (!inList || listType !== 'ul') {
+                        if (inList) result.push('</' + listType + '>');
+                        result.push('<ul>');
+                        inList = true;
+                        listType = 'ul';
+                    }
+                    result.push('<li>' + ulMatch[1] + '</li>');
+                } else if (olMatch) {
+                    if (!inList || listType !== 'ol') {
+                        if (inList) result.push('</' + listType + '>');
+                        result.push('<ol>');
+                        inList = true;
+                        listType = 'ol';
+                    }
+                    result.push('<li>' + olMatch[1] + '</li>');
+                } else {
+                    if (inList) {
+                        result.push('</' + listType + '>');
+                        inList = false;
+                        listType = null;
+                    }
+                    if (line === '') {
+                        result.push('<br>');
+                    } else if (line.startsWith('<h4>')) {
+                        result.push(line);
                     } else {
-                        if (inList) {
-                            result.push('</' + listType + '>');
-                            inList = false;
-                            listType = null;
-                        }
-                        // Empty line → paragraph break
-                        if (line === '') {
-                            result.push('<br>');
-                        } else if (line.startsWith('<h4>')) {
-                            result.push(line);
-                        } else {
-                            result.push('<p>' + line + '</p>');
-                        }
+                        result.push('<p>' + line + '</p>');
                     }
                 }
-                if (inList) {
-                    result.push('</' + listType + '>');
+            }
+            if (inList) result.push('</' + listType + '>');
+            return '<div class="answer-text">' + result.join('') + '</div>';
+        }
+
+        function scrollToBottom() {
+            chatContainer.stop().animate({ scrollTop: chatContainer[0].scrollHeight }, 300);
+        }
+
+        function appendMessage(role, content, id) {
+            const isAi = role === 'ai';
+            const avatarIcon = isAi ? 'fa-robot' : 'fa-user';
+            const idAttr = id ? 'id="' + id + '"' : '';
+            const html = '<div class="chat-message ' + role + '" ' + idAttr + '>' +
+                '<div class="chat-avatar"><i class="fas ' + avatarIcon + '"></i></div>' +
+                '<div class="chat-bubble">' + content + '</div>' +
+                '</div>';
+            chatContainer.append(html);
+            scrollToBottom();
+        }
+
+        function showTyping() {
+            const id = 'typing-' + Date.now();
+            const html = '<div class="chat-message ai" id="' + id + '">' +
+                '<div class="chat-avatar"><i class="fas fa-robot"></i></div>' +
+                '<div class="chat-bubble">' +
+                '<div class="typing-indicator"><span></span><span></span><span></span></div>' +
+                '<small class="text-muted">Sedang mencari jawaban...</small>' +
+                '</div></div>';
+            chatContainer.append(html);
+            scrollToBottom();
+            return id;
+        }
+
+        function formatSources(sources) {
+            if (!sources || sources.length === 0) return '';
+            const groupedSources = {};
+            sources.forEach(function(s) {
+                const key = s.doc_id || s.filename;
+                if (!groupedSources[key]) {
+                    groupedSources[key] = {
+                        doc_id: s.doc_id,
+                        filename: s.filename,
+                        jenis_file_kode: s.jenis_file_kode,
+                        nomor: s.nomor,
+                        judul: s.judul,
+                        pages: new Set()
+                    };
                 }
+                if (s.page) groupedSources[key].pages.add(s.page);
+            });
 
-                return '<div class="answer-text">' + result.join('') + '</div>';
-            }
+            const uniqueDocs = Object.values(groupedSources);
+            let html = '<div class="sources-section">';
+            html += '<div class="sources-label"><i class="fas fa-book-open mr-1"></i> Sumber Dokumen (' + uniqueDocs.length + ')</div>';
 
-            // ===== Scroll to bottom =====
-            function scrollToBottom() {
-                chatContainer.stop().animate({
-                    scrollTop: chatContainer[0].scrollHeight
-                }, 300);
-            }
+            uniqueDocs.forEach(function(doc) {
+                const jenis = (doc.jenis_file_kode || '').toUpperCase();
+                const nomor = doc.nomor || '-';
+                const judul = doc.judul || doc.filename || '';
+                const judulShort = judul.length > 50 ? judul.substring(0, 50) + '...' : judul;
+                const pageArr = Array.from(doc.pages).sort(function(a, b) { return parseInt(a) - parseInt(b); });
+                const pageStr = pageArr.length > 0 ? pageArr.join(', ') : '-';
+                const docId = doc.doc_id || '';
 
-            // ===== Append message =====
-            function appendMessage(role, content, id) {
-                const isAi = role === 'ai';
-                const avatarIcon = isAi ? 'fa-robot' : 'fa-user';
-                const idAttr = id ? 'id="' + id + '"' : '';
-
-                const html = '<div class="chat-message ' + role + '" ' + idAttr + '>' +
-                    '<div class="chat-avatar"><i class="fas ' + avatarIcon + '"></i></div>' +
-                    '<div class="chat-bubble">' + content + '</div>' +
+                html += '<div class="source-card">' +
+                    '<div class="source-info">' +
+                    '  <div class="source-title" title="' + $('<div/>').text(judul).html() + '">' +
+                    '    <span class="badge badge-primary mr-1">' + jenis + '</span>' + $('<div/>').text(nomor).html() +
+                    '  </div>' +
+                    '  <div class="source-meta">' +
+                    '    <i class="fas fa-file-alt mr-1"></i>' + $('<div/>').text(judulShort).html() +
+                    '    <span class="ml-2"><i class="fas fa-bookmark mr-1"></i>Hal. ' + pageStr + '</span>' +
+                    '  </div>' +
                     '</div>';
 
-                chatContainer.append(html);
-                scrollToBottom();
-            }
-
-            // ===== Typing indicator =====
-            function showTyping() {
-                const id = 'typing-' + Date.now();
-                const html = '<div class="chat-message ai" id="' + id + '">' +
-                    '<div class="chat-avatar"><i class="fas fa-robot"></i></div>' +
-                    '<div class="chat-bubble">' +
-                    '<div class="typing-indicator"><span></span><span></span><span></span></div>' +
-                    '<small class="text-muted">Sedang mencari jawaban...</small>' +
-                    '</div></div>';
-
-                chatContainer.append(html);
-                scrollToBottom();
-                return id;
-            }
-
-            // ===== Format sources with view button =====
-            function formatSources(sources) {
-                if (!sources || sources.length === 0) return '';
-
-                // Group by doc_id (or filename)
-                const groupedSources = {};
-                sources.forEach(function(s) {
-                    const key = s.doc_id || s.filename;
-                    if (!groupedSources[key]) {
-                        groupedSources[key] = {
-                            doc_id: s.doc_id,
-                            filename: s.filename,
-                            jenis_file_kode: s.jenis_file_kode,
-                            nomor: s.nomor,
-                            judul: s.judul,
-                            pages: new Set()
-                        };
-                    }
-                    if (s.page) {
-                        groupedSources[key].pages.add(s.page);
-                    }
-                });
-
-                const uniqueDocs = Object.values(groupedSources);
-
-                let html = '<div class="sources-section">';
-                html += '<div class="sources-label"><i class="fas fa-book-open mr-1"></i> Sumber Dokumen (' + uniqueDocs.length + ')</div>';
-
-                uniqueDocs.forEach(function(doc) {
-                    const jenis = (doc.jenis_file_kode || '').toUpperCase();
-                    const nomor = doc.nomor || '-';
-                    const judul = doc.judul || doc.filename || '';
-                    const judulShort = judul.length > 50 ? judul.substring(0, 50) + '...' : judul;
-                    
-                    // Convert Set to Array, sort, and join
-                    const pageArr = Array.from(doc.pages).sort(function(a, b) { return parseInt(a) - parseInt(b); });
-                    const pageStr = pageArr.length > 0 ? pageArr.join(', ') : '-';
-                    const docId = doc.doc_id || '';
-
-                    html += '<div class="source-card">' +
-                        '<div class="source-info">' +
-                        '  <div class="source-title" title="' + $('<div/>').text(judul).html() + '">' +
-                        '    <span class="badge badge-primary mr-1">' + jenis + '</span>' + $('<div/>').text(nomor).html() +
-                        '  </div>' +
-                        '  <div class="source-meta">' +
-                        '    <i class="fas fa-file-alt mr-1"></i>' + $('<div/>').text(judulShort).html() +
-                        '    <span class="ml-2"><i class="fas fa-bookmark mr-1"></i>Hal. ' + pageStr + '</span>' +
-                        '  </div>' +
-                        '</div>';
-
-                    if (docId) {
-                        html += '<button class="btn-view-source" type="button" onclick="viewSourceDoc(' + docId + ')" title="Lihat Dokumen">' +
-                            '<i class="fas fa-external-link-alt mr-1"></i>Lihat' +
-                            '</button>';
-                    }
-
-                    html += '</div>';
-                });
-
+                if (docId) {
+                    html += '<button class="btn-view-source" type="button" onclick="viewSourceDoc(' + docId + ')" title="Lihat Dokumen">' +
+                        '<i class="fas fa-external-link-alt mr-1"></i>Lihat' +
+                        '</button>';
+                }
                 html += '</div>';
-                return html;
-            }
-
-            // ===== Handle submit =====
-            $('#chatForm').on('submit', function(e) {
-                e.preventDefault();
-
-                const question = questionInput.val().trim();
-                if (!question) return;
-
-                // Show user message (plain text, escaped)
-                appendMessage('user', $('<div/>').text(question).html());
-                questionInput.val('');
-
-                // Show typing indicator
-                const typingId = showTyping();
-
-                // Disable input
-                sendBtn.prop('disabled', true);
-                questionInput.prop('disabled', true);
-
-                // Build contextual question with history
-                const contextualQuestion = buildContextualQuestion(question);
-
-                // Build request data
-                const requestData = {
-                    _token: csrfToken,
-                    question: contextualQuestion,
-                    model: $('#modelSelect').val()
-                };
-
-                const jenisFilter = $('#filterJenis').val();
-                const bagianFilter = $('#filterBagian').val().trim();
-
-                if (jenisFilter) requestData.jenis_file = jenisFilter;
-                if (bagianFilter) requestData.bagian = bagianFilter;
-
-                // Send to API
-                $.ajax({
-                    url: "{{ route('admin.rag.query') }}",
-                    method: 'POST',
-                    data: requestData,
-                    dataType: 'json',
-                    success: function(data) {
-                        $('#' + typingId).remove();
-
-                        if (data.error) {
-                            appendMessage('ai', '<span class="text-danger"><i class="fas fa-exclamation-triangle mr-1"></i> ' + (data.answer || data.message || 'Terjadi error') + '</span>');
-                            return;
-                        }
-
-                        const rawAnswer = data.answer || 'Tidak ada jawaban ditemukan.';
-                        const answerHtml = formatAnswer(rawAnswer);
-                        const sourcesHtml = formatSources(data.sources);
-                        appendMessage('ai', answerHtml + sourcesHtml);
-
-                        // Simpan ke history untuk konteks percakapan berikutnya
-                        chatHistory.push({
-                            question: question,
-                            answer: rawAnswer
-                        });
-                    },
-                    error: function(xhr, status, error) {
-                        $('#' + typingId).remove();
-                        console.error('RAG Query Error:', status, error, xhr.responseText);
-
-                        let errMsg = 'Gagal mendapatkan jawaban.';
-                        if (xhr.responseJSON) {
-                            errMsg = xhr.responseJSON.detail || xhr.responseJSON.message || xhr.responseJSON.error || errMsg;
-                        } else if (xhr.status === 0) {
-                            errMsg = 'Tidak dapat terhubung ke server.';
-                        } else if (xhr.status === 419) {
-                            errMsg = 'Sesi telah berakhir. Silakan refresh halaman.';
-                        } else if (xhr.status === 422) {
-                            errMsg = 'Pertanyaan tidak valid. Minimal 3 karakter.';
-                        } else if (xhr.status >= 500) {
-                            errMsg = 'Terjadi error pada server. Silakan coba lagi.';
-                        }
-
-                        appendMessage('ai', '<span class="text-danger"><i class="fas fa-exclamation-triangle mr-1"></i> ' + errMsg + '</span>');
-                    },
-                    complete: function() {
-                        sendBtn.prop('disabled', false);
-                        questionInput.prop('disabled', false);
-                        questionInput.focus();
-                    }
-                });
             });
 
-            // Enter to submit
-            questionInput.on('keypress', function(e) {
-                if (e.which === 13 && !e.shiftKey) {
-                    e.preventDefault();
-                    $('#chatForm').submit();
+            html += '</div>';
+            return html;
+        }
+
+        function formatUsage(usage) {
+            if (!usage || !usage.total_tokens) return '';
+            return '<div class="token-usage">Prompt: ' + (usage.prompt_tokens || 0) +
+                ' | Completion: ' + (usage.completion_tokens || 0) +
+                ' | Total: ' + (usage.total_tokens || 0) + '</div>';
+        }
+
+        function rebuildHistoryFromMessages(messages) {
+            chatHistory.length = 0;
+            pendingQuestion = null;
+            messages.forEach(function(item) {
+                if (item.role === 'user') {
+                    pendingQuestion = item.content;
+                } else if (item.role === 'ai' && pendingQuestion) {
+                    chatHistory.push({ question: pendingQuestion, answer: item.content || '' });
+                    pendingQuestion = null;
                 }
             });
+        }
 
-            // Focus input on load
+        function loadSessions(selectSessionId) {
+            $.getJSON(sessionsUrl, function(resp) {
+                const sessions = resp.sessions || [];
+                const keepId = selectSessionId || currentSessionId;
+                sessionSelect.empty().append('<option value="">-- Riwayat Percakapan --</option>');
+                sessions.forEach(function(s) {
+                    sessionSelect.append(
+                        $('<option/>')
+                            .val(s.id)
+                            .text((s.title || 'Percakapan') + (s.model ? ' [' + s.model + ']' : ''))
+                    );
+                });
+
+                updateTokenBalance(resp.token_balance);
+                if (keepId) {
+                    sessionSelect.val(String(keepId));
+                    setActiveSession(parseInt(keepId, 10));
+                } else {
+                    setActiveSession(null);
+                }
+            });
+        }
+
+        function loadSessionMessages(sessionId) {
+            if (!sessionId) {
+                setActiveSession(null);
+                resetWelcomeMessage();
+                return;
+            }
+
+            $.getJSON(sessionBaseUrl + '/' + sessionId + '/messages', function(resp) {
+                resetWelcomeMessage();
+                chatContainer.empty();
+                const messages = resp.messages || [];
+                messages.forEach(function(m) {
+                    if (m.role === 'user') {
+                        appendMessage('user', $('<div/>').text(m.content).html());
+                    } else {
+                        appendMessage('ai', formatAnswer(m.content || '') + formatSources(m.sources || []) + formatUsage(m.usage || {}));
+                    }
+                });
+
+                rebuildHistoryFromMessages(messages);
+                setActiveSession(parseInt(sessionId, 10));
+                updateTokenBalance(resp.token_balance);
+            }).fail(function() {
+                setActiveSession(null);
+                resetWelcomeMessage();
+            });
+        }
+
+        $('#chatForm').on('submit', function(e) {
+            e.preventDefault();
+            const question = questionInput.val().trim();
+            if (!question) return;
+
+            appendMessage('user', $('<div/>').text(question).html());
+            questionInput.val('');
+            const typingId = showTyping();
+            sendBtn.prop('disabled', true);
+            questionInput.prop('disabled', true);
+
+            const requestData = {
+                _token: csrfToken,
+                question: buildContextualQuestion(question),
+                model: $('#modelSelect').val()
+            };
+
+            if (currentSessionId) requestData.session_id = currentSessionId;
+
+            $.ajax({
+                url: queryUrl,
+                method: 'POST',
+                data: requestData,
+                dataType: 'json',
+                success: function(data) {
+                    $('#' + typingId).remove();
+
+                    if (data.error) {
+                        appendMessage('ai', '<span class="text-danger"><i class="fas fa-exclamation-triangle mr-1"></i> ' + (data.answer || data.message || 'Terjadi error') + '</span>');
+                        return;
+                    }
+
+                    if (data.session_id) {
+                        setActiveSession(data.session_id);
+                        loadSessions(data.session_id);
+                    }
+                    updateTokenBalance(data.token_balance);
+
+                    const rawAnswer = (typeof data.answer === 'string' && data.answer.trim() !== '')
+                        ? data.answer
+                        : 'Tidak ada jawaban ditemukan.';
+                    appendMessage('ai', formatAnswer(rawAnswer) + formatSources(data.sources || []) + formatUsage(data.usage || {}));
+                    chatHistory.push({ question: question, answer: rawAnswer });
+                },
+                error: function(xhr) {
+                    $('#' + typingId).remove();
+                    let errMsg = 'Gagal mendapatkan jawaban.';
+
+                    if (xhr.responseJSON) {
+                        const payload = xhr.responseJSON;
+                        if (typeof payload.answer === 'string' && payload.answer.trim() !== '') {
+                            errMsg = payload.answer;
+                        } else if (typeof payload.detail === 'string' && payload.detail.trim() !== '') {
+                            errMsg = payload.detail;
+                        } else if (typeof payload.message === 'string' && payload.message.trim() !== '') {
+                            errMsg = payload.message;
+                        }
+                    } else if (xhr.status === 0) {
+                        errMsg = 'Tidak dapat terhubung ke server.';
+                    } else if (xhr.status === 419) {
+                        errMsg = 'Sesi telah berakhir. Silakan refresh halaman.';
+                    } else if (xhr.status === 422) {
+                        errMsg = 'Pertanyaan tidak valid. Minimal 3 karakter.';
+                    } else if (xhr.status >= 500) {
+                        errMsg = 'Terjadi error pada server. Silakan coba lagi.';
+                    }
+
+                    appendMessage('ai', '<span class="text-danger"><i class="fas fa-exclamation-triangle mr-1"></i> ' + errMsg + '</span>');
+                },
+                complete: function() {
+                    sendBtn.prop('disabled', false);
+                    questionInput.prop('disabled', false);
+                    questionInput.focus();
+                }
+            });
+        });
+
+        questionInput.on('keypress', function(e) {
+            if (e.which === 13 && !e.shiftKey) {
+                e.preventDefault();
+                $('#chatForm').submit();
+            }
+        });
+
+        $('#newChatBtn').on('click', function() {
+            sessionSelect.val('');
+            setActiveSession(null);
+            resetWelcomeMessage();
             questionInput.focus();
         });
 
-        // ===== View source document (global function for onclick) =====
-        function viewSourceDoc(docId) {
-            $('#ragTampilId').val(docId);
-            window.open('{{ route("admin.dokumen.tampil") }}', 'ragdoc', 'width=900,height=700');
-            $('#ragTampilForm').submit();
-        }
-    </script>
+        $('#refreshSessionBtn').on('click', function() {
+            loadSessions();
+            if (currentSessionId) loadSessionMessages(currentSessionId);
+        });
+
+        sessionSelect.on('change', function() {
+            const selected = $(this).val();
+            if (selected) {
+                loadSessionMessages(selected);
+            } else {
+                setActiveSession(null);
+                resetWelcomeMessage();
+            }
+        });
+
+        deleteSessionBtn.on('click', function() {
+            if (!currentSessionId) return;
+            if (!confirm('Hapus riwayat percakapan ini?')) return;
+
+            $.ajax({
+                url: sessionBaseUrl + '/' + currentSessionId,
+                method: 'POST',
+                data: {
+                    _token: csrfToken,
+                    _method: 'DELETE'
+                },
+                success: function() {
+                    sessionSelect.val('');
+                    setActiveSession(null);
+                    resetWelcomeMessage();
+                    loadSessions();
+                }
+            });
+        });
+
+        resetWelcomeMessage();
+        loadSessions();
+        questionInput.focus();
+    });
+
+    function viewSourceDoc(docId) {
+        $('#ragTampilId').val(docId);
+        window.open('{{ route("admin.dokumen.tampil") }}', 'ragdoc', 'width=900,height=700');
+        $('#ragTampilForm').submit();
+    }
+</script>
 @endsection

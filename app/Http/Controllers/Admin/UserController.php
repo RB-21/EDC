@@ -26,7 +26,8 @@ class UserController extends Controller
         $master_user_role = MasterUserRole::all();
         $master_jenis_file = MasterJenisFile::all();
         $master_jenis_aksi = MasterJenisAksi::all();
-        return view('admin.user.index', compact('master_bagian', 'master_user_level', 'master_user_role', 'master_jenis_file', 'master_jenis_aksi'));
+        $rag_models = config('services.rag.available_models', []);
+        return view('admin.user.index', compact('master_bagian', 'master_user_level', 'master_user_role', 'master_jenis_file', 'master_jenis_aksi', 'rag_models'));
     }
 
     public function simpan(Request $request)
@@ -48,6 +49,8 @@ class UserController extends Controller
             'level' => "required|in:$master_user_level",
             'jenis_file' => "required|array",
             'jenis_file' => "required|array",
+            'ai_token_balance' => 'nullable|integer|min:0',
+            'ai_allowed_models' => 'nullable|array',
         ], [
             'nik.required' => 'NIK Harus Diisi',
             'nik.unique' => 'NIK Sudah Terdaftar',
@@ -64,6 +67,12 @@ class UserController extends Controller
             'level.in' => 'Level Harus Dalam Jangka :values',
         ]);
 
+        $allowedModels = config('services.rag.available_models', []);
+        $selectedAiModels = array_values(array_intersect(
+            $allowedModels,
+            (array) $request->input('ai_allowed_models', [])
+        ));
+
         $user = User::create([
             'nik' => $request->nik,
             'name' => $request->nama,
@@ -74,7 +83,9 @@ class UserController extends Controller
             'active_from' => $request->active_from,
             'active_to' => $request->active_to,
             'active_status' => 1,
-            'role' => $request->role
+            'role' => $request->role,
+            'ai_token_balance' => (int) $request->input('ai_token_balance', 100000),
+            'ai_allowed_models' => empty($selectedAiModels) ? null : implode(',', $selectedAiModels),
         ]);
 
         if ($user->role == 'tmu') {
@@ -116,6 +127,8 @@ class UserController extends Controller
             'kepentingan' => 'required_if:role,tmu',
             'level' => "required|in:$master_user_level",
             'jenis_file' => "array",
+            'ai_token_balance' => 'nullable|integer|min:0',
+            'ai_allowed_models' => 'nullable|array',
 
         ], [
             'nik.required' => 'NIK Harus Diisi',
@@ -133,6 +146,12 @@ class UserController extends Controller
             'level.in' => 'Level Harus Dalam Jangka :values',
         ]);
 
+        $allowedModels = config('services.rag.available_models', []);
+        $selectedAiModels = array_values(array_intersect(
+            $allowedModels,
+            (array) $request->input('ai_allowed_models', [])
+        ));
+
         $user = User::findOrFail($request->id);
         $user->update([
             // 'nik' => $request->nik,
@@ -144,7 +163,9 @@ class UserController extends Controller
             'active_from' => $request->active_from,
             'active_to' => $request->active_to,
             'active_status' => 1,
-            'role' => $request->role
+            'role' => $request->role,
+            'ai_token_balance' => (int) $request->input('ai_token_balance', 100000),
+            'ai_allowed_models' => empty($selectedAiModels) ? null : implode(',', $selectedAiModels),
         ]);
 
 

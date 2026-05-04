@@ -81,6 +81,10 @@ Route::middleware('auth')->group(function () {
         Route::prefix('rag')->name('rag.')->group(function () {
             Route::get('/chat', [\App\Http\Controllers\Admin\RagController::class, 'chatPage'])->name('chat');
             Route::post('/query', [\App\Http\Controllers\Admin\RagController::class, 'query'])->name('query');
+            Route::get('/sessions', [\App\Http\Controllers\Admin\RagController::class, 'sessions'])->name('sessions');
+            Route::post('/sessions', [\App\Http\Controllers\Admin\RagController::class, 'createSession'])->name('sessions.create');
+            Route::get('/sessions/{sessionId}/messages', [\App\Http\Controllers\Admin\RagController::class, 'sessionMessages'])->name('sessions.messages');
+            Route::delete('/sessions/{sessionId}', [\App\Http\Controllers\Admin\RagController::class, 'deleteSession'])->name('sessions.delete');
             Route::post('/index/{docId}', [\App\Http\Controllers\Admin\RagController::class, 'indexDocument'])->name('index');
             Route::get('/index/status/{jobKey}', [\App\Http\Controllers\Admin\RagController::class, 'indexStatus'])->name('index.status');
             Route::delete('/index/{docId}', [\App\Http\Controllers\Admin\RagController::class, 'deleteIndex'])->name('delete');

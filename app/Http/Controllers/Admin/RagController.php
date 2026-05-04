@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AiChatMessage;
+use App\Models\AiChatSession;
 use App\Models\Dokumen;
 use App\Services\RagService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class RagController extends Controller
 {
@@ -20,17 +24,143 @@ class RagController extends Controller
     /**
      * Halaman chat AI.
      */
-    public function chatPage()
+    public function chatPage(Request $request)
     {
+        $user = $request->user();
         $health = $this->ragService->healthCheck();
-        $model = config('services.rag.default_model', 'gemini-2.0-flash');
-        $availableModels = config('services.rag.available_models', [
-            'gemini-2.0-flash',
-            'gemini-2.5-flash-preview-04-17',
-            'gemini-2.5-pro-preview-03-25',
+        $availableModels = $this->getAllowedModelsForUser($user);
+
+        $defaultModel = config('services.rag.default_model', 'gemini-2.0-flash');
+        $model = in_array($defaultModel, $availableModels, true)
+            ? $defaultModel
+            : ($availableModels[0] ?? $defaultModel);
+
+        $tokenBalance = (int) ($user->ai_token_balance ?? 0);
+
+        return view('admin.rag.chat', compact('health', 'model', 'availableModels', 'tokenBalance'));
+    }
+
+    /**
+     * AJAX: daftar session chat user.
+     */
+    public function sessions(Request $request)
+    {
+        $user = $request->user();
+
+        $sessions = AiChatSession::with('latestMessage')
+            ->where('user_id', $user->id)
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('updated_at')
+            ->limit(50)
+            ->get()
+            ->map(function ($session) {
+                return [
+                    'id' => $session->id,
+                    'title' => $session->title ?: 'Percakapan Baru',
+                    'model' => $session->model,
+                    'last_message_at' => optional($session->last_message_at)->toDateTimeString(),
+                    'preview' => Str::limit((string) optional($session->latestMessage)->message, 90),
+                ];
+            });
+
+        return response()->json([
+            'sessions' => $sessions,
+            'token_balance' => (int) ($user->ai_token_balance ?? 0),
+        ]);
+    }
+
+    /**
+     * AJAX: detail pesan dalam satu session.
+     */
+    public function sessionMessages(Request $request, $sessionId)
+    {
+        $session = AiChatSession::where('id', $sessionId)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        $messages = AiChatMessage::where('session_id', $session->id)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($message) {
+                $meta = $message->meta ?? [];
+                return [
+                    'id' => $message->id,
+                    'role' => $message->role === 'assistant' ? 'ai' : 'user',
+                    'content' => (string) $message->message,
+                    'sources' => $meta['sources'] ?? [],
+                    'usage' => [
+                        'prompt_tokens' => (int) ($message->prompt_tokens ?? 0),
+                        'completion_tokens' => (int) ($message->completion_tokens ?? 0),
+                        'total_tokens' => (int) ($message->total_tokens ?? 0),
+                    ],
+                    'model' => $message->model,
+                    'created_at' => optional($message->created_at)->toDateTimeString(),
+                ];
+            });
+
+        return response()->json([
+            'session' => [
+                'id' => $session->id,
+                'title' => $session->title,
+                'model' => $session->model,
+            ],
+            'messages' => $messages,
+            'token_balance' => (int) ($request->user()->ai_token_balance ?? 0),
+        ]);
+    }
+
+    /**
+     * AJAX: buat session baru (opsional dipakai frontend).
+     */
+    public function createSession(Request $request)
+    {
+        $request->validate([
+            'title' => 'nullable|string|max:255',
+            'model' => 'nullable|string|max:120',
         ]);
 
-        return view('admin.rag.chat', compact('health', 'model', 'availableModels'));
+        $user = $request->user();
+        $allowedModels = $this->getAllowedModelsForUser($user);
+        $selectedModel = $request->input('model');
+        if ($selectedModel && !in_array($selectedModel, $allowedModels, true)) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Model tidak diizinkan untuk user ini.',
+            ], 422);
+        }
+
+        $session = AiChatSession::create([
+            'user_id' => $user->id,
+            'title' => $request->input('title', 'Percakapan Baru'),
+            'model' => $selectedModel ?: (config('services.rag.default_model')),
+            'last_message_at' => now(),
+        ]);
+
+        return response()->json([
+            'error' => false,
+            'session' => [
+                'id' => $session->id,
+                'title' => $session->title,
+                'model' => $session->model,
+            ],
+        ]);
+    }
+
+    /**
+     * AJAX: hapus session user.
+     */
+    public function deleteSession(Request $request, $sessionId)
+    {
+        $session = AiChatSession::where('id', $sessionId)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        $session->delete();
+
+        return response()->json([
+            'error' => false,
+            'message' => 'Session berhasil dihapus.',
+        ]);
     }
 
     /**
@@ -38,24 +168,131 @@ class RagController extends Controller
      */
     public function query(Request $request)
     {
-        $request->validate(['question' => 'required|string|min:3']);
+        $request->validate([
+            'question' => 'required|string|min:3',
+            'model' => 'nullable|string|max:120',
+            'session_id' => 'nullable|integer',
+        ]);
+
+        $user = $request->user();
+        $availableModels = $this->getAllowedModelsForUser($user);
+        $selectedModel = $request->input('model') ?: (config('services.rag.default_model', 'gemini-2.0-flash'));
+
+        if (!in_array($selectedModel, $availableModels, true)) {
+            return response()->json([
+                'error' => true,
+                'answer' => 'Model yang dipilih tidak diizinkan untuk akun Anda.',
+                'sources' => [],
+            ], 422);
+        }
+
+        $currentBalance = (int) ($user->ai_token_balance ?? 0);
+        if ($currentBalance <= 0) {
+            return response()->json([
+                'error' => true,
+                'answer' => 'Saldo token Anda habis. Hubungi admin untuk topup.',
+                'sources' => [],
+            ], 402);
+        }
 
         try {
+            $question = $request->input('question');
+            $session = $this->resolveSession($user->id, $request->input('session_id'), $question, $selectedModel);
+
             // Ambil konteks daftar dokumen ter-index agar AI tidak tampilkan nama file hash
             $docCatalog = $this->getIndexedDocCatalog();
-            $question = $request->input('question');
-
+            $questionWithCatalog = $question;
             if (!empty($docCatalog)) {
-                $question = $docCatalog . "\n\n" . $question;
+                $questionWithCatalog = $docCatalog . "\n\n" . $question;
             }
 
             $result = $this->ragService->query(
-                $question,
+                $questionWithCatalog,
                 $request->input('jenis_file'),
                 $request->input('bagian'),
                 $request->input('doc_id') ? (int) $request->input('doc_id') : null,
-                $request->input('model')
+                $selectedModel
             );
+
+            if (($result['error'] ?? false) === true) {
+                return response()->json($result, 500);
+            }
+
+            $answer = (string) ($result['answer'] ?? '');
+            $sources = $result['sources'] ?? [];
+            $usage = $result['usage'] ?? [];
+
+            $promptTokens = (int) ($usage['prompt_tokens'] ?? 0);
+            $completionTokens = (int) ($usage['completion_tokens'] ?? 0);
+            $totalTokens = (int) ($usage['total_tokens'] ?? 0);
+            if ($totalTokens <= 0) {
+                $totalTokens = $this->estimateTotalTokens($question, $answer);
+            }
+            if ($promptTokens <= 0) {
+                $promptTokens = (int) ceil($totalTokens * 0.4);
+            }
+            if ($completionTokens <= 0) {
+                $completionTokens = max(0, $totalTokens - $promptTokens);
+            }
+
+            $newBalance = max(0, $currentBalance - $totalTokens);
+
+            DB::transaction(function () use (
+                $session,
+                $user,
+                $question,
+                $answer,
+                $sources,
+                $selectedModel,
+                $promptTokens,
+                $completionTokens,
+                $totalTokens,
+                $newBalance
+            ) {
+                AiChatMessage::create([
+                    'session_id' => $session->id,
+                    'user_id' => $user->id,
+                    'role' => 'user',
+                    'message' => $question,
+                    'model' => $selectedModel,
+                    'prompt_tokens' => 0,
+                    'completion_tokens' => 0,
+                    'total_tokens' => 0,
+                ]);
+
+                AiChatMessage::create([
+                    'session_id' => $session->id,
+                    'user_id' => $user->id,
+                    'role' => 'assistant',
+                    'message' => $answer,
+                    'model' => $selectedModel,
+                    'prompt_tokens' => $promptTokens,
+                    'completion_tokens' => $completionTokens,
+                    'total_tokens' => $totalTokens,
+                    'meta' => [
+                        'sources' => $sources,
+                    ],
+                ]);
+
+                $session->update([
+                    'model' => $selectedModel,
+                    'last_message_at' => now(),
+                    'title' => $session->title ?: Str::limit($question, 80),
+                ]);
+
+                $user->update([
+                    'ai_token_balance' => $newBalance,
+                ]);
+            });
+
+            $result['usage'] = [
+                'prompt_tokens' => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'total_tokens' => $totalTokens,
+            ];
+            $result['session_id'] = $session->id;
+            $result['token_balance'] = $newBalance;
+            $result['model'] = $selectedModel;
 
             return response()->json($result);
         } catch (\Exception $e) {
@@ -92,7 +329,7 @@ class RagController extends Controller
             $catalog .= "Gunakan nomor dan judul berikut (JANGAN gunakan nama file PDF) saat menyebut dokumen:\n";
             foreach ($docs as $doc) {
                 $jenis = strtoupper($doc->jenis_file_kode ?? '');
-                $catalog .= "- [{$jenis}] {$doc->nomor} — {$doc->judul}\n";
+                $catalog .= "- [{$jenis}] {$doc->nomor} - {$doc->judul}\n";
             }
 
             return $catalog;
@@ -141,5 +378,45 @@ class RagController extends Controller
     {
         $docIds = $this->ragService->getIndexedDocIds();
         return response()->json(['doc_ids' => $docIds]);
+    }
+
+    private function getAllowedModelsForUser($user): array
+    {
+        $defaultModels = config('services.rag.available_models', [
+            'gemini-2.0-flash',
+            'gemini-2.5-flash-preview-04-17',
+            'gemini-2.5-pro-preview-03-25',
+        ]);
+
+        if (!$user) {
+            return $defaultModels;
+        }
+
+        return $user->getAllowedAiModels($defaultModels);
+    }
+
+    private function estimateTotalTokens(string $question, string $answer): int
+    {
+        $raw = max(1, (int) ceil((mb_strlen($question) + mb_strlen($answer)) / 4));
+        return max(1, $raw);
+    }
+
+    private function resolveSession(int $userId, $sessionId, string $question, string $model): AiChatSession
+    {
+        if ($sessionId) {
+            $session = AiChatSession::where('id', (int) $sessionId)
+                ->where('user_id', $userId)
+                ->first();
+            if ($session) {
+                return $session;
+            }
+        }
+
+        return AiChatSession::create([
+            'user_id' => $userId,
+            'title' => Str::limit($question, 80),
+            'model' => $model,
+            'last_message_at' => now(),
+        ]);
     }
 }

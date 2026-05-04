@@ -41,6 +41,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'ai_token_balance' => 'integer',
     ];
 
     public function level(){
@@ -74,5 +75,31 @@ class User extends Authenticatable
     public function getAksi(){
         $monitorId = $this->getOriginal('jenisAksi');
         return MasterJenisAksi::whereIn('id', explode(',', $monitorId))->get();
+    }
+
+    public function aiChatSessions()
+    {
+        return $this->hasMany(AiChatSession::class, 'user_id', 'id');
+    }
+
+    public function aiChatMessages()
+    {
+        return $this->hasMany(AiChatMessage::class, 'user_id', 'id');
+    }
+
+    public function getAllowedAiModels(array $defaultModels): array
+    {
+        $raw = trim((string) ($this->ai_allowed_models ?? ''));
+        if ($raw === '') {
+            return $defaultModels;
+        }
+
+        $allowed = array_values(array_filter(array_map('trim', explode(',', $raw))));
+        if (empty($allowed)) {
+            return $defaultModels;
+        }
+
+        $valid = array_values(array_intersect($defaultModels, $allowed));
+        return empty($valid) ? $defaultModels : $valid;
     }
 }
