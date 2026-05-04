@@ -281,6 +281,11 @@
             animation: pulse 2s infinite;
         }
 
+        .status-dot.degraded {
+            background: #f39c12;
+            animation: pulse 2s infinite;
+        }
+
         .status-dot.offline {
             background: #e74c3c;
         }
@@ -395,6 +400,9 @@
                             @if(($health['status'] ?? '') === 'healthy')
                                 <span class="status-dot online"></span>
                                 <span>Online</span>
+                            @elseif(($health['status'] ?? '') === 'degraded')
+                                <span class="status-dot degraded"></span>
+                                <span>Degraded</span>
                             @else
                                 <span class="status-dot offline"></span>
                                 <span>Offline</span>
@@ -634,27 +642,40 @@
             function formatSources(sources) {
                 if (!sources || sources.length === 0) return '';
 
-                // Deduplicate by doc_id (show unique documents only)
-                const seen = {};
-                const uniqueSources = [];
+                // Group by doc_id (or filename)
+                const groupedSources = {};
                 sources.forEach(function(s) {
-                    const key = s.doc_id + '-' + s.page;
-                    if (!seen[key]) {
-                        seen[key] = true;
-                        uniqueSources.push(s);
+                    const key = s.doc_id || s.filename;
+                    if (!groupedSources[key]) {
+                        groupedSources[key] = {
+                            doc_id: s.doc_id,
+                            filename: s.filename,
+                            jenis_file_kode: s.jenis_file_kode,
+                            nomor: s.nomor,
+                            judul: s.judul,
+                            pages: new Set()
+                        };
+                    }
+                    if (s.page) {
+                        groupedSources[key].pages.add(s.page);
                     }
                 });
 
-                let html = '<div class="sources-section">';
-                html += '<div class="sources-label"><i class="fas fa-book-open mr-1"></i> Sumber Dokumen (' + uniqueSources.length + ')</div>';
+                const uniqueDocs = Object.values(groupedSources);
 
-                uniqueSources.forEach(function(s) {
-                    const jenis = (s.jenis_file_kode || '').toUpperCase();
-                    const nomor = s.nomor || '-';
-                    const judul = s.judul || '';
+                let html = '<div class="sources-section">';
+                html += '<div class="sources-label"><i class="fas fa-book-open mr-1"></i> Sumber Dokumen (' + uniqueDocs.length + ')</div>';
+
+                uniqueDocs.forEach(function(doc) {
+                    const jenis = (doc.jenis_file_kode || '').toUpperCase();
+                    const nomor = doc.nomor || '-';
+                    const judul = doc.judul || doc.filename || '';
                     const judulShort = judul.length > 50 ? judul.substring(0, 50) + '...' : judul;
-                    const page = s.page || '-';
-                    const docId = s.doc_id || '';
+                    
+                    // Convert Set to Array, sort, and join
+                    const pageArr = Array.from(doc.pages).sort(function(a, b) { return parseInt(a) - parseInt(b); });
+                    const pageStr = pageArr.length > 0 ? pageArr.join(', ') : '-';
+                    const docId = doc.doc_id || '';
 
                     html += '<div class="source-card">' +
                         '<div class="source-info">' +
@@ -663,12 +684,12 @@
                         '  </div>' +
                         '  <div class="source-meta">' +
                         '    <i class="fas fa-file-alt mr-1"></i>' + $('<div/>').text(judulShort).html() +
-                        '    <span class="ml-2"><i class="fas fa-bookmark mr-1"></i>Hal. ' + page + '</span>' +
+                        '    <span class="ml-2"><i class="fas fa-bookmark mr-1"></i>Hal. ' + pageStr + '</span>' +
                         '  </div>' +
                         '</div>';
 
                     if (docId) {
-                        html += '<button class="btn-view-source" onclick="viewSourceDoc(' + docId + ')" title="Lihat Dokumen">' +
+                        html += '<button class="btn-view-source" type="button" onclick="viewSourceDoc(' + docId + ')" title="Lihat Dokumen">' +
                             '<i class="fas fa-external-link-alt mr-1"></i>Lihat' +
                             '</button>';
                     }
