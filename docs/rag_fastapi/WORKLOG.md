@@ -475,3 +475,75 @@ Verification:
 
 Risks:
 - Ini bukan image-bytes embedding murni; kualitas retrieval gambar bergantung pada kualitas OCR.
+
+---
+
+## 2026-05-05 11:45-11:50 (Asia/Jakarta)
+Scope:
+- Menukar urutan tampilan UI antara `saran pertanyaan lanjutan` dan `sumber dokumen`.
+
+Perbaikan:
+- Urutan render message AI di chat diubah menjadi:
+  - Jawaban
+  - Usage token
+  - Saran pertanyaan lanjutan
+  - Sumber dokumen
+- Perubahan diterapkan untuk:
+  - pesan baru dari request query
+  - pesan riwayat saat load session
+
+Files:
+- `resources/views/admin/rag/chat.blade.php`
+
+Verification:
+- Struktur render JS diperbarui konsisten pada dua jalur append message AI.
+
+Risks:
+- Tidak ada risiko backend; perubahan murni urutan presentasi di frontend.
+
+---
+
+## 2026-05-05 11:55-12:05 (Asia/Jakarta)
+Scope:
+- Menempatkan informasi token usage di bagian paling bawah bubble jawaban AI.
+- Mengecilkan badge jenis sumber dokumen pada kartu sumber.
+
+Perbaikan:
+- Urutan render message AI diubah menjadi:
+  - Jawaban
+  - Saran pertanyaan lanjutan
+  - Sumber dokumen
+  - Token usage (paling bawah)
+- Selector CSS badge sumber diperbaiki ke lokasi render yang benar (`.source-title .badge`) dan ukuran font/padding diperkecil.
+
+Files:
+- `resources/views/admin/rag/chat.blade.php`
+
+Verification:
+- Urutan append message AI diperbarui konsisten pada jalur load riwayat dan jawaban baru.
+- Badge jenis sumber kini memakai style small yang benar-benar ter-apply.
+
+Risks:
+- Tidak ada dampak backend; perubahan hanya presentasi frontend.
+
+---
+
+## 2026-05-05 12:05-12:15 (Asia/Jakarta)
+Scope:
+- Menyembunyikan blok sumber dokumen ketika jawaban AI menyatakan informasi tidak ditemukan.
+
+Perbaikan:
+- Ditambahkan guard frontend `shouldHideSources(answerText)` pada rendering bubble AI.
+- Jika jawaban mengandung pola "informasi tidak ditemukan" / "tidak ada dokumen relevan", `formatSources()` tidak ditampilkan.
+- Diterapkan pada:
+  - render jawaban baru
+  - render riwayat session
+
+Files:
+- `resources/views/admin/rag/chat.blade.php`
+
+Verification:
+- Jalur append message AI kini kondisional terhadap isi jawaban.
+
+Risks:
+- Rule berbasis frasa jawaban; jika wording model berubah total, perlu update pattern.

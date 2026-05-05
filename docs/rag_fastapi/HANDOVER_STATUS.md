@@ -123,6 +123,18 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Untuk `image` chunk dari PDF, backend otomatis fallback ke OCR lalu meng-embed hasil teksnya.
 - Ini menjaga dokumen PDF bergambar / tabel / scan tetap searchable tanpa bergantung pada model `gemini-embedding-2`.
 
+20. Chat UI ordering update
+- Posisi komponen jawaban AI di chat diperbarui agar `saran pertanyaan lanjutan` tampil sebelum `sumber dokumen`.
+- Urutan baru berlaku untuk message baru dan saat membuka riwayat session.
+
+21. Token and source badge UI refinement
+- Informasi token usage dipindahkan ke bagian paling bawah bubble jawaban AI.
+- Badge jenis dokumen pada sumber diperkecil (small) dengan selector CSS yang sesuai lokasi render.
+
+22. Conditional source visibility
+- Blok `Sumber Dokumen` kini disembunyikan saat jawaban menyatakan informasi tidak ditemukan.
+- Aturan diterapkan untuk jawaban baru maupun riwayat chat.
+
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.
 2. Kuota/model availability tetap bergantung pada project Vertex AI dan auth ADC/service account yang aktif.

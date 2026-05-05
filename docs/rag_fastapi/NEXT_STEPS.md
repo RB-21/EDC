@@ -32,6 +32,10 @@
 - Confirm full-width/full-height layout
 - Confirm model selector in toolbar works
 - Confirm filter jenis/bagian removed
+- Confirm urutan AI bubble: jawaban -> usage -> saran pertanyaan -> sumber dokumen
+- Confirm urutan final AI bubble: jawaban -> saran pertanyaan -> sumber dokumen -> usage
+- Confirm badge jenis dokumen pada sumber tampil small/compact
+- Confirm blok `Sumber Dokumen` tidak tampil saat jawaban menyatakan informasi tidak ditemukan
 
 7. End-to-end chat persistence test
 - Send 2-3 queries
