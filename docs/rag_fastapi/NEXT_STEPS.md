@@ -43,13 +43,24 @@
 - Confirm blok `Sumber Dokumen` tidak tampil saat jawaban menyatakan informasi tidak ditemukan
 - Confirm seluruh label assistant tampil sebagai `N4R4 AI Assistance`
 
-8. End-to-end chat persistence test
+8. Floating widget smoke test (all roles)
+- Buka halaman dashboard/dokumen pada role admin, user, operator, dan tamu.
+- Pastikan tombol floating `N4R4 AI Assistance` selalu tampil.
+- Kirim minimal 1 pertanyaan per role dan pastikan ada jawaban.
+- Reload halaman dan pastikan history session widget tetap terbaca.
+- Verifikasi saldo token di widget ikut berubah setelah query sukses.
+- Verifikasi panel widget tidak overflow ke bawah pada desktop/mobile dan zoom 90%-125%.
+- Verifikasi formatting widget setara halaman AI utama (sources, follow-up questions, token usage, dan tombol lihat dokumen).
+- Verifikasi fungsi dropdown riwayat chat + tombol `Chat Baru` di widget berjalan stabil.
+- Verifikasi default state widget selalu `percakapan baru` setelah refresh halaman.
+
+9. End-to-end chat persistence test
 - Send 2-3 queries
 - Reload page
 - Re-open session from dropdown
 - Validate message history reloaded correctly
 
-9. Token accounting validation
+10. Token accounting validation
 - Capture token before query
 - Send query
 - Validate `ai_token_balance` decrement equals `usage.total_tokens`

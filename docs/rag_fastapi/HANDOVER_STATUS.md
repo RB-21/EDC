@@ -146,6 +146,33 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Nama AI assistant pada UI admin diganti menjadi `N4R4 AI Assistance`.
 - Berlaku di sidebar admin, judul halaman chat, header chat card, sapaan default assistant, dan tombol kembali pada halaman setting prompt.
 
+25. Floating AI customer-service widget (all roles)
+- Ditambahkan widget melayang `N4R4 AI Assistance` pada template admin/user/operator/tamu.
+- Widget dapat membuka percakapan, memuat riwayat session, dan mengirim query RAG langsung dari halaman mana pun.
+- Endpoint chat AI dibuat lintas role di group auth (`/ai-assistance/*`) dengan backend logic existing `RagController`.
+- Token balance, model allowlist user, dan persistence session tetap mengikuti mekanisme yang sama seperti chat admin.
+
+26. Floating widget overflow fix
+- Layout internal panel widget diubah ke flex-based vertical layout agar footer/input selalu berada di dalam panel.
+- Kasus overflow bawah pada viewport tertentu sudah ditangani dengan tinggi panel adaptif.
+
+27. Widget formatting parity with main AI page
+- Widget melayang kini menampilkan output dengan format yang setara halaman `admin/rag/chat`:
+  - answer formatter (bold/list/heading/code)
+  - saran pertanyaan lanjutan
+  - sumber dokumen + tombol lihat
+  - token usage
+- Lebar panel widget diperbesar agar konten jawaban dan sumber lebih mudah dibaca.
+
+28. Widget session controls
+- Widget kini memiliki dropdown riwayat chat untuk memilih session yang sudah ada.
+- Widget memiliki tombol `Chat Baru` untuk membuat session baru langsung dari panel.
+- Session aktif tersinkron dengan localStorage, dropdown, dan endpoint sessions lintas role.
+
+29. Default widget state = percakapan baru
+- Saat widget dibuka, tampilan awal kini selalu percakapan baru (greeting), bukan auto-load session lama.
+- Riwayat chat tetap tersedia di dropdown dan bisa dipilih manual kapan saja.
+
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.
 2. Kuota/model availability tetap bergantung pada project Vertex AI dan auth ADC/service account yang aktif.

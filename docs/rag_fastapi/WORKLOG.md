@@ -618,3 +618,144 @@ Verification:
 
 Risks:
 - Branding di dokumen referensi/guide teknis masih dapat menyebut nama lama dan bisa dirapikan terpisah.
+
+---
+
+## 2026-05-05 15:00-15:20 (Asia/Jakarta)
+Scope:
+- Menambahkan AI Assistance berbentuk widget melayang di seluruh halaman aplikasi (admin/user/operator/tamu).
+- Membuka akses endpoint chat AI lintas role agar berfungsi seperti customer service internal tanpa harus masuk halaman chat admin.
+
+Perbaikan:
+- Menambah route group auth baru `ai-assistance`:
+  - `GET /ai-assistance/sessions`
+  - `POST /ai-assistance/sessions`
+  - `GET /ai-assistance/sessions/{id}/messages`
+  - `DELETE /ai-assistance/sessions/{id}`
+  - `POST /ai-assistance/query`
+- Endpoint tersebut memanfaatkan logic existing `RagController` sehingga:
+  - tetap menghormati token balance user
+  - tetap memakai model yang diizinkan per user
+  - tetap menyimpan session + history chat
+- Membuat partial UI baru `partials/n4ra-assistance-widget.blade.php`:
+  - tombol floating di kanan bawah
+  - panel chat seperti customer service
+  - auto create/load session per user (disimpan di localStorage)
+  - kirim query ke backend RAG dan tampilkan jawaban langsung
+  - tampilkan saldo token terkini
+- Widget di-include ke template:
+  - admin (kecuali halaman `admin.rag.chat` agar tidak duplikasi chat)
+  - user
+  - operator
+  - tamu
+
+Files:
+- `routes/web.php`
+- `resources/views/partials/n4ra-assistance-widget.blade.php`
+- `resources/views/admin/template.blade.php`
+- `resources/views/user/template.blade.php`
+- `resources/views/operator/template.blade.php`
+- `resources/views/tamu/template.blade.php`
+
+Verification:
+- `php -l routes/web.php` lulus.
+
+Risks:
+- Widget baru belum melalui UAT lintas role di browser; perlu smoke test manual untuk alur session/query di tiap role.
+
+---
+
+## 2026-05-05 15:25-15:35 (Asia/Jakarta)
+Scope:
+- Perbaikan overflow UI pada widget floating `N4R4 AI Assistance`.
+
+Perbaikan:
+- Layout panel diubah ke model `flex` vertikal (header/body/footer) agar tinggi body chat adaptif.
+- Menghapus kalkulasi tinggi statis body (`calc(100% - 126px)`) yang menyebabkan footer/input terdorong keluar panel.
+- Menyetel `textarea` dan tombol kirim agar tidak memaksa lebar/tinggi berlebih.
+- Penyesuaian mode mobile supaya panel tetap penuh dalam viewport tanpa overflow bawah.
+- Toggle panel dari JS disesuaikan (`display: flex`) agar layout flex aktif saat dibuka.
+
+Files:
+- `resources/views/partials/n4ra-assistance-widget.blade.php`
+
+Verification:
+- Review struktur CSS/JS memastikan header, message area, dan footer berada dalam satu kontainer fleksibel.
+
+Risks:
+- Belum diverifikasi visual di seluruh kombinasi zoom browser; perlu 1 kali smoke test manual.
+
+---
+
+## 2026-05-05 15:40-15:55 (Asia/Jakarta)
+Scope:
+- Menyamakan formatting widget dengan halaman AI khusus.
+- Memperlebar panel widget untuk meningkatkan kenyamanan baca.
+
+Perbaikan:
+- Lebar widget dinaikkan dari `360px` ke `480px` (tetap responsif terhadap viewport).
+- Rendering jawaban AI widget kini memakai formatter yang setara dengan halaman chat utama:
+  - markdown sederhana (`**bold**`, list, heading, inline code)
+  - blok `Sumber Dokumen`
+  - blok `Saran pertanyaan lanjutan`
+  - informasi token usage
+- Tombol follow-up question di widget kini bisa langsung mengisi input.
+- Tombol `Lihat` pada sumber dokumen ditambahkan di widget, termasuk form post tersembunyi sesuai role aktif (admin/operator/user/tamu).
+
+Files:
+- `resources/views/partials/n4ra-assistance-widget.blade.php`
+
+Verification:
+- Review struktur JS memastikan payload `sources`, `follow_up_questions`, dan `usage` dari endpoint dipakai untuk render widget.
+
+Risks:
+- Perlu smoke test manual klik `Lihat` sumber pada tiap role untuk memastikan route tampil dokumen sesuai hak akses.
+
+---
+
+## 2026-05-05 16:00-16:15 (Asia/Jakarta)
+Scope:
+- Menambahkan kontrol manajemen session langsung di widget floating (`pilih chat` dan `chat baru`).
+
+Perbaikan:
+- Menambahkan toolbar widget berisi:
+  - dropdown riwayat chat (`Pilih riwayat chat`)
+  - tombol `Chat Baru`
+- Menambahkan sinkronisasi session widget ke endpoint:
+  - `GET /ai-assistance/sessions`
+  - `GET /ai-assistance/sessions/{id}/messages`
+  - `POST /ai-assistance/sessions`
+- Perilaku baru:
+  - User bisa berpindah ke riwayat chat lama dari dropdown.
+  - User bisa membuat chat/session baru tanpa keluar halaman.
+  - Session aktif disimpan di `localStorage` dan tetap konsisten dengan dropdown.
+  - Kontrol toolbar nonaktif saat request berjalan untuk menghindari race condition.
+
+Files:
+- `resources/views/partials/n4ra-assistance-widget.blade.php`
+
+Verification:
+- Review JS flow memastikan transisi session (select/new/send/open panel) tersambung ke endpoint sessions.
+
+Risks:
+- Perlu smoke test manual cepat untuk memastikan urutan session di dropdown sesuai ekspektasi user saat sesi sangat banyak.
+
+---
+
+## 2026-05-05 16:20-16:25 (Asia/Jakarta)
+Scope:
+- Mengubah default tampilan widget agar selalu memulai dari percakapan baru.
+
+Perbaikan:
+- Widget tidak lagi auto-select / auto-load riwayat session lama saat pertama kali dibuka.
+- Riwayat chat tetap dimuat ke dropdown, tetapi pilihan aktif default kosong.
+- User tetap bisa memilih session lama secara manual dari dropdown jika diperlukan.
+
+Files:
+- `resources/views/partials/n4ra-assistance-widget.blade.php`
+
+Verification:
+- Review logic `ensureSessionAndHistory()` memastikan state awal `currentSessionId=null` menghasilkan greeting percakapan baru.
+
+Risks:
+- Jika user berharap auto-resume session lama setelah refresh, perilaku itu kini dinonaktifkan by default.

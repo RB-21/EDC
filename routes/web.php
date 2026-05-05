@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DevelopmentController;
+use App\Http\Controllers\Admin\RagController;
 use App\Http\Controllers\Operator\DashboardController as OperatorDashboardController;
 use App\Http\Controllers\Operator\DokumenController as OperatorDokumenController;
 use App\Http\Controllers\Operator\ProfileController as OperatorProfileController;
@@ -41,6 +42,14 @@ Route::get('update_password', [AuthController::class, 'update_password'])->name(
 Route::post('update_password', [AuthController::class, 'update_password_process'])->name('update_password_process');
 
 Route::middleware('auth')->group(function () {
+    Route::prefix('ai-assistance')->name('ai_assistance.')->group(function () {
+        Route::get('/sessions', [RagController::class, 'sessions'])->name('sessions');
+        Route::post('/sessions', [RagController::class, 'createSession'])->name('sessions.create');
+        Route::get('/sessions/{sessionId}/messages', [RagController::class, 'sessionMessages'])->name('sessions.messages');
+        Route::delete('/sessions/{sessionId}', [RagController::class, 'deleteSession'])->name('sessions.delete');
+        Route::post('/query', [RagController::class, 'query'])->name('query');
+    });
+
     Route::middleware('auth.role:admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('index');
         Route::post('/', [DashboardController::class, 'getDataDokumenByJenis'])->name('getDataDokumenByJenis');
@@ -79,18 +88,18 @@ Route::middleware('auth')->group(function () {
         });
 
         Route::prefix('rag')->name('rag.')->group(function () {
-            Route::get('/chat', [\App\Http\Controllers\Admin\RagController::class, 'chatPage'])->name('chat');
-            Route::get('/settings', [\App\Http\Controllers\Admin\RagController::class, 'promptSettingsPage'])->name('settings');
-            Route::post('/settings', [\App\Http\Controllers\Admin\RagController::class, 'updatePromptSettings'])->name('settings.update');
-            Route::post('/query', [\App\Http\Controllers\Admin\RagController::class, 'query'])->name('query');
-            Route::get('/sessions', [\App\Http\Controllers\Admin\RagController::class, 'sessions'])->name('sessions');
-            Route::post('/sessions', [\App\Http\Controllers\Admin\RagController::class, 'createSession'])->name('sessions.create');
-            Route::get('/sessions/{sessionId}/messages', [\App\Http\Controllers\Admin\RagController::class, 'sessionMessages'])->name('sessions.messages');
-            Route::delete('/sessions/{sessionId}', [\App\Http\Controllers\Admin\RagController::class, 'deleteSession'])->name('sessions.delete');
-            Route::post('/index/{docId}', [\App\Http\Controllers\Admin\RagController::class, 'indexDocument'])->name('index');
-            Route::get('/index/status/{jobKey}', [\App\Http\Controllers\Admin\RagController::class, 'indexStatus'])->name('index.status');
-            Route::delete('/index/{docId}', [\App\Http\Controllers\Admin\RagController::class, 'deleteIndex'])->name('delete');
-            Route::get('/indexed', [\App\Http\Controllers\Admin\RagController::class, 'indexedDocuments'])->name('indexed');
+            Route::get('/chat', [RagController::class, 'chatPage'])->name('chat');
+            Route::get('/settings', [RagController::class, 'promptSettingsPage'])->name('settings');
+            Route::post('/settings', [RagController::class, 'updatePromptSettings'])->name('settings.update');
+            Route::post('/query', [RagController::class, 'query'])->name('query');
+            Route::get('/sessions', [RagController::class, 'sessions'])->name('sessions');
+            Route::post('/sessions', [RagController::class, 'createSession'])->name('sessions.create');
+            Route::get('/sessions/{sessionId}/messages', [RagController::class, 'sessionMessages'])->name('sessions.messages');
+            Route::delete('/sessions/{sessionId}', [RagController::class, 'deleteSession'])->name('sessions.delete');
+            Route::post('/index/{docId}', [RagController::class, 'indexDocument'])->name('index');
+            Route::get('/index/status/{jobKey}', [RagController::class, 'indexStatus'])->name('index.status');
+            Route::delete('/index/{docId}', [RagController::class, 'deleteIndex'])->name('delete');
+            Route::get('/indexed', [RagController::class, 'indexedDocuments'])->name('indexed');
         });
     });
 

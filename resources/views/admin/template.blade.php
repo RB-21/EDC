@@ -376,8 +376,8 @@
   {{-- <script src="{{ asset('stisla-master') }}/assets/js/page/index-0.js"></script> --}}
     <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    @if (session()->has('success'))
-        <script>
+  @if (session()->has('success'))
+      <script>
             $(document).ready(function() {
                 @if (session()->get('success'))
                     Swal.fire({
@@ -394,8 +394,11 @@
                     })
                 @endif
             })
-        </script>
-    @endif
+      </script>
+  @endif
+  @if (!request()->routeIs('admin.rag.chat'))
+    @include('partials.n4ra-assistance-widget')
+  @endif
   @yield('scripts')
 </body>
 </html>
