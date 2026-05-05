@@ -65,6 +65,23 @@ return [
                 'JAWABAN:',
             ])
         ),
+        'default_prompt_rules' => env(
+            'RAG_DEFAULT_PROMPT_RULES',
+            implode("\n", [
+                '[ATURAN WAJIB SISTEM]',
+                '1) Tampilkan dokumen utama (similarity tertinggi) sebagai acuan utama jawaban.',
+                '2) Jika ada dokumen lain yang tetap relevan kuat terhadap pertanyaan, boleh disebutkan juga.',
+                '3) Setelah blok identitas dokumen, tampilkan "Ringkasan Dokumen" minimal 5 poin ringkas.',
+                '4) Ringkasan harus berisi detail penting dan konkret dari dokumen (misal nomor, tanggal, ketentuan, daftar poin utama).',
+                '5) Jangan singkat berlebihan. Jika konteks cukup, berikan ringkasan yang komprehensif.',
+                '6) Di akhir jawaban, WAJIB tampilkan blok saran pertanyaan lanjutan persis dengan format:',
+                '[FOLLOW_UP_QUESTIONS]',
+                '1. ...',
+                '2. ...',
+                '3. ...',
+                '[/FOLLOW_UP_QUESTIONS]',
+            ])
+        ),
         'available_models' => array_values(array_filter(array_map(
             'trim',
             explode(',', env('RAG_AVAILABLE_MODELS', 'gemini-2.5-flash'))

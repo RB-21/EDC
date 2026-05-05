@@ -48,9 +48,11 @@ class RagController extends Controller
     public function promptSettingsPage()
     {
         $promptTemplate = $this->getRagPromptTemplate();
+        $promptRules = $this->getRagPromptRules();
 
         return view('admin.rag.settings', [
             'promptTemplate' => $promptTemplate,
+            'promptRules' => $promptRules,
         ]);
     }
 
@@ -68,9 +70,11 @@ class RagController extends Controller
 
         $request->validate([
             'prompt_template' => 'required|string|min:50|max:60000',
+            'prompt_rules' => 'required|string|min:20|max:30000',
         ]);
 
         $template = (string) $request->input('prompt_template');
+        $rules = trim((string) $request->input('prompt_rules'));
 
         // Wajib ada placeholder agar template valid untuk runtime.
         foreach (['{{CONTEXT_BLOCK}}', '{{QUESTION}}'] as $requiredPlaceholder) {
@@ -90,9 +94,17 @@ class RagController extends Controller
             ]
         );
 
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_prompt_rules'],
+            [
+                'value' => $rules,
+                'description' => 'Aturan sistem dan format output untuk RAG generation',
+            ]
+        );
+
         return back()->with([
             'success' => true,
-            'message' => 'Template prompt RAG berhasil disimpan.',
+            'message' => 'Pengaturan prompt RAG berhasil disimpan.',
         ]);
     }
 
@@ -256,6 +268,7 @@ class RagController extends Controller
             $question = $request->input('question');
             $session = $this->resolveSession($user->id, $request->input('session_id'), $question, $selectedModel);
             $promptTemplate = $this->getRagPromptTemplate();
+            $promptRules = $this->getRagPromptRules();
 
             $result = $this->ragService->query(
                 $question,
@@ -264,7 +277,8 @@ class RagController extends Controller
                 $request->input('doc_id') ? (int) $request->input('doc_id') : null,
                 $selectedModel,
                 null,
-                $promptTemplate
+                $promptTemplate,
+                $promptRules
             );
 
             if (($result['error'] ?? false) === true) {
@@ -491,5 +505,13 @@ class RagController extends Controller
         }
 
         return $fromDb;
+    }
+
+    private function getRagPromptRules(): string
+    {
+        $default = (string) config('services.rag.default_prompt_rules', '');
+        $fromDb = trim((string) AiSetting::getValue('rag_prompt_rules', $default));
+
+        return $fromDb !== '' ? $fromDb : $default;
     }
 }

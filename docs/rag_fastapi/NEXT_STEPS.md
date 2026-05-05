@@ -8,27 +8,32 @@
 - Jalankan restart script sekali dari non-admin shell untuk validasi auto-elevation path.
 - Pastikan runtime tetap di `asia-southeast1`; jangan kembali ke `asia-southeast2` karena terbukti memicu `FAILED_PRECONDITION`.
 
-2. Reindex ke collection Vertex baru
+2. Prompt settings smoke test from EDC
+- Buka menu `AI Prompt Settings`.
+- Ubah `Prompt Template` dan `Prompt Rules`, simpan, lalu kirim 1 query.
+- Verifikasi perubahan perilaku prompt benar-benar mengikuti setting dari EDC.
+
+3. Reindex ke collection Vertex baru
 - Collection aktif sekarang `edc_documents_vertex_v1`.
 - Jalankan indexing ulang dokumen yang dibutuhkan ke collection baru.
 - Verifikasi query hanya memakai vector yang berasal dari `gemini-embedding-001`.
 - Verifikasi beberapa PDF yang berisi gambar/tabel/scan untuk memastikan OCR fallback menghasilkan teks yang cukup baik.
 
-3. Cleanup model lama
+4. Cleanup model lama
 - Tandai `edc_documents_v2` sebagai collection legacy berbasis `gemini-embedding-2`.
 - Putuskan apakah collection lama akan dipertahankan sementara atau dihapus setelah reindex selesai.
 
-4. Relevance policy validation (multi-document)
+5. Relevance policy validation (multi-document)
 - Uji query yang hanya relevan ke satu dokumen: pastikan hanya dokumen utama tampil.
 - Uji query komparatif lintas dokumen: pastikan dokumen tambahan muncul hanya jika skor mendekati dokumen utama.
 - Verifikasi batas `source_max_documents` dan `source_context_per_document` bekerja konsisten.
 
-5. Follow-up questions UX validation
+6. Follow-up questions UX validation
 - Pastikan backend selalu mengembalikan `follow_up_questions` saat format model valid.
 - Uji fallback saat blok `[FOLLOW_UP_QUESTIONS]` tidak ada (UI tidak error, tombol tidak muncul).
 - Klik tombol saran harus mengisi input pertanyaan dengan benar.
 
-6. UI smoke test on `admin/rag/chat`
+7. UI smoke test on `admin/rag/chat`
 - Confirm full-width/full-height layout
 - Confirm model selector in toolbar works
 - Confirm filter jenis/bagian removed
@@ -36,14 +41,15 @@
 - Confirm urutan final AI bubble: jawaban -> saran pertanyaan -> sumber dokumen -> usage
 - Confirm badge jenis dokumen pada sumber tampil small/compact
 - Confirm blok `Sumber Dokumen` tidak tampil saat jawaban menyatakan informasi tidak ditemukan
+- Confirm seluruh label assistant tampil sebagai `N4R4 AI Assistance`
 
-7. End-to-end chat persistence test
+8. End-to-end chat persistence test
 - Send 2-3 queries
 - Reload page
 - Re-open session from dropdown
 - Validate message history reloaded correctly
 
-8. Token accounting validation
+9. Token accounting validation
 - Capture token before query
 - Send query
 - Validate `ai_token_balance` decrement equals `usage.total_tokens`
@@ -60,6 +66,9 @@
 
 3. Reduce CLI warning noise
 - Optional PHP/runtime tuning for cleaner migration logs in local dev
+
+4. Branding copy cleanup (docs)
+- Rapikan penyebutan nama lama `AI Assistant EDC` / `EDC AI Assistant` di dokumen panduan teknis agar konsisten.
 
 ## Operational Notes
 - Use `scripts/restart-rag-stack.ps1` for stable restart flow

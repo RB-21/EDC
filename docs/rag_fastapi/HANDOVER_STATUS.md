@@ -135,6 +135,17 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Blok `Sumber Dokumen` kini disembunyikan saat jawaban menyatakan informasi tidak ditemukan.
 - Aturan diterapkan untuk jawaban baru maupun riwayat chat.
 
+23. Dynamic prompt layering via EDC
+- Pengaturan prompt kini dipisah menjadi dua lapisan:
+  - `Prompt Template`: susunan prompt utama + placeholder konteks/pertanyaan
+  - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
+- EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
+- Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.
+
+24. Assistant UI rebranding
+- Nama AI assistant pada UI admin diganti menjadi `N4R4 AI Assistance`.
+- Berlaku di sidebar admin, judul halaman chat, header chat card, sapaan default assistant, dan tombol kembali pada halaman setting prompt.
+
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.
 2. Kuota/model availability tetap bergantung pada project Vertex AI dan auth ADC/service account yang aktif.
@@ -142,6 +153,7 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 4. Collection baru `edc_documents_vertex_v1` masih kosong sampai proses reindex dijalankan.
 5. Collection lama `edc_documents_v2` memakai embedding space `gemini-embedding-2` dan tidak boleh dicampur dengan runtime `gemini-embedding-001`.
 6. Retrieval untuk konten gambar sekarang bergantung pada kualitas OCR fallback, bukan native multimodal image embedding.
+7. Jika FastAPI dipanggil langsung tanpa lewat EDC, service masih memakai default fallback prompt/rules internal.
 
 ## Active Defaults
 - `AI_BACKEND=vertex_ai`

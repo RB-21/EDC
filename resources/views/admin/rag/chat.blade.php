@@ -467,7 +467,7 @@
 @endsection
 
 @section('page-name')
-    AI Assistant
+    N4R4 AI Assistance
 @endsection
 
 @section('content')
@@ -480,7 +480,7 @@
                 <div class="card card-chat">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div>
-                            <h4 class="d-inline"><i class="fas fa-robot mr-2"></i> EDC AI Assistant</h4>
+                            <h4 class="d-inline"><i class="fas fa-robot mr-2"></i> N4R4 AI Assistance</h4>
                             <span class="model-badge" id="modelBadge" title="AI Model">
                                 <i class="fas fa-microchip"></i>
                                 <span id="modelName">{{ $model ?? 'gemini-2.5-flash' }}</span>
@@ -531,7 +531,7 @@
                                 <i class="fas fa-robot"></i>
                             </div>
                             <div class="chat-bubble">
-                                Halo! Saya <strong>AI Assistant EDC</strong>. Saya bisa menjawab pertanyaan berdasarkan
+                                Halo! Saya <strong>N4R4 AI Assistance</strong>. Saya bisa menjawab pertanyaan berdasarkan
                                 dokumen yang sudah di-index seperti <strong>SOP, SE, SK, IK</strong>, dan lainnya.
                                 <br><br>
                                 Silakan ketik pertanyaan Anda di bawah. 👇
@@ -603,7 +603,7 @@
                 chatContainer.html(
                     '<div class="chat-message ai">' +
                     '  <div class="chat-avatar"><i class="fas fa-robot"></i></div>' +
-                    '  <div class="chat-bubble">Halo! Saya <strong>AI Assistant EDC</strong>. Saya siap membantu pertanyaan dokumen Anda.</div>' +
+                    '  <div class="chat-bubble">Halo! Saya <strong>N4R4 AI Assistance</strong>. Saya siap membantu pertanyaan dokumen Anda.</div>' +
                     '</div>'
                 );
                 chatHistory.length = 0;

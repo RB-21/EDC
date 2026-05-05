@@ -547,3 +547,74 @@ Verification:
 
 Risks:
 - Rule berbasis frasa jawaban; jika wording model berubah total, perlu update pattern.
+
+---
+
+## 2026-05-05 12:20-12:40 (Asia/Jakarta)
+Scope:
+- Meninjau arsitektur prompt RAG secara end-to-end.
+- Mengurangi ketergantungan pada aturan hardcoded di FastAPI.
+- Memindahkan kontrol prompt menjadi lebih dinamis melalui menu `AI Prompt Settings` di EDC.
+
+Root cause:
+- Sebelumnya admin EDC hanya mengatur `prompt_template`, tetapi FastAPI tetap menambahkan blok aturan sistem hardcoded setelah template.
+- Ini membuat perilaku prompt terasa "setengah dinamis": struktur utama bisa berubah dari EDC, tetapi aturan wajib/follow-up tetap dipaksa dari backend Python.
+
+Perbaikan:
+- EDC:
+  - Menu `AI Prompt Settings` kini memiliki dua field:
+    - `Prompt Template`
+    - `Prompt Rules / System Rules`
+  - `RagController` membaca dua setting tersebut dari DB/config.
+  - `RagService` kini mengirim `prompt_rules` ke FastAPI bersama `prompt_template`.
+- FastAPI:
+  - `QueryRequest` ditambah field `prompt_rules`.
+  - `generate_answer()` kini menerima `prompt_rules`.
+  - Blok aturan sistem tidak lagi selalu hardcoded append; jika EDC mengirim rules, rules itulah yang dipakai.
+  - Hardcoded rules di Python kini hanya berfungsi sebagai fallback safety net.
+- SQL docs:
+  - Seed default `rag_prompt_rules` ditambahkan ke SQL manual `ai_settings`.
+
+Files:
+- `../EDC AI RAG/app/models.py`
+- `../EDC AI RAG/app/embedding.py`
+- `../EDC AI RAG/main.py`
+- `app/Http/Controllers/Admin/RagController.php`
+- `app/Services/RagService.php`
+- `config/services.php`
+- `resources/views/admin/rag/settings.blade.php`
+- `docs/rag_fastapi/sql/2026_05_04_ai_prompt_settings.sql`
+
+Verification:
+- `python -m py_compile main.py app\\embedding.py app\\models.py` lulus.
+- `php -l` lulus untuk:
+  - `app/Http/Controllers/Admin/RagController.php`
+  - `app/Services/RagService.php`
+  - `config/services.php`
+
+Risks:
+- FastAPI masih menyimpan default fallback prompt/rules untuk kasus service dipanggil langsung tanpa lewat EDC.
+
+---
+
+## 2026-05-05 14:35-14:45 (Asia/Jakarta)
+Scope:
+- Rebranding nama AI assistant pada UI admin dari label lama ke `N4R4 AI Assistance`.
+
+Perbaikan:
+- Mengganti label menu sidebar admin.
+- Mengganti judul halaman chat AI.
+- Mengganti heading kartu chat AI.
+- Mengganti sapaan default assistant pada state awal dan saat membuat session baru.
+- Mengganti teks tombol kembali pada halaman pengaturan prompt.
+
+Files:
+- `resources/views/admin/template.blade.php`
+- `resources/views/admin/rag/chat.blade.php`
+- `resources/views/admin/rag/settings.blade.php`
+
+Verification:
+- Pencarian string di `resources/views/admin` sudah tidak menemukan `AI Assistant EDC`, `EDC AI Assistant`, maupun label generik `AI Assistant`.
+
+Risks:
+- Branding di dokumen referensi/guide teknis masih dapat menyebut nama lama dan bisa dirapikan terpisah.

@@ -312,7 +312,7 @@
               <li class="nav-item {{ request()->routeIs('admin.rag.chat') ? 'active' : '' }}">
                 <a class="nav-link" href="{{ route('admin.rag.chat') }}">
                     <i class="fas fa-robot"></i>
-                    <span>AI Assistant</span>
+                    <span>N4R4 AI Assistance</span>
                 </a>
               </li>
               <li class="nav-item {{ request()->routeIs('admin.rag.settings') ? 'active' : '' }}">
