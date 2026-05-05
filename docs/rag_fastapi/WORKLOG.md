@@ -273,3 +273,205 @@ Files:
 
 Risks:
 - Jika model tidak mengikuti format `[FOLLOW_UP_QUESTIONS]`, fallback saat ini adalah daftar kosong.
+
+---
+
+## 2026-05-05 09:10-09:35 (Asia/Jakarta)
+Scope:
+- Mengalihkan runtime AI service menjadi Vertex AI only.
+- Menghapus jalur auth AI Studio/API key dari backend Python.
+- Menyelaraskan test suite, env template, dan docs agar tidak ambigu soal backend aktif.
+
+Perbaikan:
+- Backend AI:
+  - `get_client()` kini selalu membuat client `google-genai` dengan `vertexai=True`.
+  - Validasi `GOOGLE_CLOUD_PROJECT` dan `GOOGLE_CLOUD_LOCATION` ditambahkan agar error auth/config lebih jelas.
+  - Root endpoint kini mengembalikan `ai_backend=vertex_ai`.
+- Operasional:
+  - `.env.example` diubah menjadi Vertex-only.
+  - README dan AI context diperbarui agar tidak lagi mengarahkan tim ke AI Studio.
+- Testability:
+  - `test_layers.py` diperbarui untuk label Vertex AI.
+  - Perbaikan bug lama pada test suite: output `generate_answer()` sekarang dibaca dari `answer["text"]`.
+
+Files:
+- `../EDC AI RAG/app/config.py`
+- `../EDC AI RAG/app/embedding.py`
+- `../EDC AI RAG/main.py`
+- `../EDC AI RAG/test_layers.py`
+- `../EDC AI RAG/.env.example`
+- `../EDC AI RAG/README.md`
+- `../EDC AI RAG/AI_CONTEXT.md`
+
+Verification:
+- `python -m py_compile main.py app\\config.py app\\embedding.py app\\ocr.py test_layers.py` lulus.
+
+Risks:
+- Collection aktif saat ini masih memakai `gemini-embedding-2` (`edc_documents_v2`); perlu smoke test runtime untuk memastikan model yang sama berjalan baik via Vertex pada environment target.
+
+---
+
+## 2026-05-05 10:00-10:20 (Asia/Jakarta)
+Scope:
+- Investigasi `restart-rag-stack.ps1` yang timeout dengan pesan RAG tidak siap dalam 90 detik.
+- Memperbaiki kompatibilitas startup setelah refactor Vertex-only.
+- Menambahkan diagnostik log pada script restart agar kegagalan startup lebih terlihat.
+
+Root cause:
+- Service Python crash saat startup karena `.env` lama masih berisi `GEMINI_API_KEY`, sementara field tersebut sempat dihapus dari `Settings`.
+- Setelah startup kompatibel lagi, health check menunjukkan `gcp_connected=false`.
+- Verifikasi manual menemukan model `gemini-embedding-2` tidak tersedia / tidak diizinkan pada Vertex project `palm-reg4-dev` (`404 NOT_FOUND`).
+
+Perbaikan:
+- `app/config.py`:
+  - `gemini_api_key` dikembalikan sebagai field deprecated agar `.env` lama tidak mematahkan startup.
+- `scripts/restart-rag-stack.ps1`:
+  - Tambah redirect stdout/stderr ke log file.
+  - Jika proses RAG exit cepat atau timeout, script kini menampilkan tail log untuk diagnosis cepat.
+
+Files:
+- `../EDC AI RAG/app/config.py`
+- `scripts/restart-rag-stack.ps1`
+
+Verification:
+- `uvicorn main:app` kini bisa start kembali.
+- `restart-rag-stack.ps1` tidak lagi gagal karena crash startup tersembunyi.
+- `/health` sekarang merespons, tetapi status masih `degraded` karena Vertex embedding model aktif belum accessible.
+
+Risks:
+- Query/indexing tetap belum usable penuh sampai model embedding Vertex diganti ke model yang tersedia atau akses model saat ini dibuka.
+
+---
+
+## 2026-05-05 10:25-10:40 (Asia/Jakarta)
+Scope:
+- Mengganti region Vertex AI aktif dari `us-central1` ke Singapore (`asia-southeast1`).
+- Verifikasi ulang apakah `gemini-embedding-2` menjadi accessible setelah pindah region.
+
+Perbaikan:
+- Region runtime aktif diubah ke `asia-southeast1` pada config dan `.env`.
+- Template env dan dokumentasi internal ikut diselaraskan ke Singapore region.
+
+Files:
+- `../EDC AI RAG/.env`
+- `../EDC AI RAG/app/config.py`
+- `../EDC AI RAG/.env.example`
+- `../EDC AI RAG/README.md`
+- `../EDC AI RAG/AI_CONTEXT.md`
+
+Verification:
+- Root endpoint tetap sehat dan melaporkan service running.
+- `/health` masih `degraded` karena `gcp_connected=false`.
+- Verifikasi manual `embed_text('test')` masih gagal `404 NOT_FOUND` untuk:
+  - `projects/palm-reg4-dev/locations/asia-southeast1/publishers/google/models/gemini-embedding-2`
+
+Risks:
+- Pindah region saja tidak menyelesaikan masalah; indikasi kuat bahwa project/account belum punya akses efektif ke `gemini-embedding-2` di Vertex, walau region sudah diganti.
+
+---
+
+## 2026-05-05 10:45-10:55 (Asia/Jakarta)
+Scope:
+- Memperbaiki error script restart: `Cannot overwrite variable PID because it is read-only or constant`.
+- Menambahkan auto-elevation agar script bisa relaunch sebagai Administrator saat dibutuhkan.
+
+Root cause:
+- Variabel loop memakai nama `$pid` yang bentrok dengan variabel bawaan PowerShell `$PID` (read-only).
+
+Perbaikan:
+- Ganti nama variabel loop dari `$pid` menjadi `$owningPid`.
+- Tambah parameter `-NoElevate` dan logika auto-relauch `RunAs` jika belum admin.
+
+Files:
+- `scripts/restart-rag-stack.ps1`
+
+Verification:
+- `restart-rag-stack.ps1 -NoElevate` berjalan tanpa error `VariableNotWritable`.
+- `/health` endpoint tetap merespons setelah restart.
+
+Risks:
+- Status health masih `degraded` karena isu akses model embedding Vertex (`gcp_connected=false`), terpisah dari isu script restart.
+
+---
+
+## 2026-05-05 10:55-11:10 (Asia/Jakarta)
+Scope:
+- Investigasi error query `400 FAILED_PRECONDITION`.
+- Verifikasi jalur Vertex aktif untuk generation dan embedding secara terpisah.
+
+Root cause:
+- `.env` runtime ternyata sempat mengarah ke `GOOGLE_CLOUD_LOCATION=asia-southeast2` (Jakarta), bukan `asia-southeast1` (Singapore).
+- Dengan region `asia-southeast2`, panggilan Vertex untuk `gemini-2.5-flash` dan embedding sama-sama gagal `400 FAILED_PRECONDITION`.
+- Verifikasi one-off ke `asia-southeast1` menunjukkan:
+  - `gemini-2.5-flash` berhasil dipanggil.
+  - `text-embedding-005` berhasil dipanggil.
+  - `gemini-embedding-001` berhasil dipanggil.
+
+Perbaikan:
+- Region runtime aktif dikembalikan ke `asia-southeast1` pada `.env`.
+- RAG service direstart ulang dengan script restart.
+
+Files:
+- `../EDC AI RAG/.env`
+
+Verification:
+- Startup log kini menunjukkan `Location: asia-southeast1`.
+- Error `FAILED_PRECONDITION` teridentifikasi sebagai akibat region `asia-southeast2`.
+- Isu yang tersisa sekarang adalah kompatibilitas / akses model embedding aktif `gemini-embedding-2`, bukan lagi precondition region.
+
+Risks:
+- Query tetap belum sehat penuh karena collection aktif masih memakai `gemini-embedding-2`, sedangkan model Vertex yang terverifikasi berhasil saat ini adalah `gemini-embedding-001` atau `text-embedding-005`.
+
+---
+
+## 2026-05-05 11:10-11:25 (Asia/Jakarta)
+Scope:
+- Mengganti embedding runtime ke model Vertex yang benar-benar tersedia.
+- Memisahkan collection baru agar vector lama tidak tercampur dengan embedding space baru.
+
+Perbaikan:
+- Runtime embedding diubah menjadi `gemini-embedding-001` (3072 dim).
+- Collection aktif diubah menjadi `edc_documents_vertex_v1`.
+- Config default, `.env`, `.env.example`, dan README diselaraskan dengan model/collection baru.
+
+Files:
+- `../EDC AI RAG/app/config.py`
+- `../EDC AI RAG/.env`
+- `../EDC AI RAG/.env.example`
+- `../EDC AI RAG/README.md`
+
+Verification:
+- Restart service dijalankan ulang setelah perubahan config.
+- Health check diverifikasi ulang setelah switch model.
+
+Risks:
+- Collection baru masih kosong; perlu reindex dokumen agar query kembali relevan.
+- Collection lama `edc_documents_v2` tidak kompatibel untuk query baru karena embedding space berbeda.
+
+---
+
+## 2026-05-05 11:25-11:40 (Asia/Jakarta)
+Scope:
+- Memastikan pipeline tetap cocok untuk PDF yang berisi gambar, tabel, dan scan setelah pindah ke model text embedding Vertex.
+
+Perbaikan:
+- `embed_chunks()` untuk `image` chunk kini:
+  - mencoba embed gambar langsung terlebih dahulu
+  - jika model aktif tidak mendukung image-bytes embedding, fallback ke OCR
+  - hasil OCR disimpan ke `chunk.content` lalu di-embed sebagai teks
+- Payload Qdrant untuk `image` chunk kini menyimpan hasil OCR jika tersedia, sehingga tetap searchable oleh hybrid search.
+
+Files:
+- `../EDC AI RAG/app/embedding.py`
+- `../EDC AI RAG/app/vector_store.py`
+- `../EDC AI RAG/README.md`
+
+Verification:
+- `py_compile` lulus untuk file yang diubah.
+- Uji sintetis gambar berisi teks:
+  - direct image embedding gagal pada model text embedding
+  - OCR fallback berhasil
+  - chunk image tetap menghasilkan vector 3072 dim dan teks OCR tersimpan di `chunk.content`
+
+Risks:
+- Ini bukan image-bytes embedding murni; kualitas retrieval gambar bergantung pada kualitas OCR.

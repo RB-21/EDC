@@ -1,8 +1,19 @@
 param(
-    [string]$EdcPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    [string]$EdcPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    [switch]$NoElevate
 )
 
 $ErrorActionPreference = "Stop"
+
+function Test-IsAdmin {
+    try {
+        $current = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = New-Object Security.Principal.WindowsPrincipal($current)
+        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {
+        return $false
+    }
+}
 
 function Write-Step([string]$Message) {
     Write-Host ""
@@ -24,9 +35,34 @@ function Wait-HttpOk([string]$Url, [int]$TimeoutSeconds = 60) {
     return $false
 }
 
+function Show-LogTail([string]$Path, [int]$Lines = 80) {
+    if (Test-Path $Path) {
+        Write-Host ""
+        Write-Host "--- Tail: $Path ---" -ForegroundColor DarkYellow
+        Get-Content $Path -Tail $Lines | Out-Host
+        Write-Host "--- End Tail ---" -ForegroundColor DarkYellow
+    }
+}
+
+if (-not $NoElevate -and -not (Test-IsAdmin)) {
+    Write-Host "Script membutuhkan hak Administrator. Mencoba relaunch dengan Run as Administrator..." -ForegroundColor Yellow
+    $scriptPath = $MyInvocation.MyCommand.Path
+    $argList = @(
+        "-ExecutionPolicy", "Bypass",
+        "-File", "`"$scriptPath`"",
+        "-EdcPath", "`"$EdcPath`"",
+        "-NoElevate"
+    )
+    Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Verb RunAs | Out-Null
+    exit 0
+}
+
 $AppsRoot = Split-Path $EdcPath -Parent
 $RagPath = Join-Path $AppsRoot "EDC AI RAG"
 $RagPython = Join-Path $RagPath "venv\python.exe"
+$LogDir = Join-Path $RagPath "logs"
+$StdOutLog = Join-Path $LogDir "rag_stdout.log"
+$StdErrLog = Join-Path $LogDir "rag_stderr.log"
 
 if (-not (Test-Path $RagPath)) {
     throw "Folder RAG tidak ditemukan: $RagPath"
@@ -52,16 +88,25 @@ foreach ($proc in $stale) {
     }
 }
 
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir | Out-Null
+}
+foreach ($logFile in @($StdOutLog, $StdErrLog)) {
+    if (Test-Path $logFile) {
+        Remove-Item $logFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Write-Step "Stop proses yang masih menahan port 8100 (jika ada)"
 $portPids = Get-NetTCPConnection -LocalPort 8100 -ErrorAction SilentlyContinue |
     Select-Object -ExpandProperty OwningProcess -Unique
-foreach ($pid in $portPids) {
-    if ($pid -and $pid -ne 0) {
+foreach ($owningPid in $portPids) {
+    if ($owningPid -and $owningPid -ne 0) {
         try {
-            Stop-Process -Id $pid -Force -ErrorAction Stop
-            Write-Host "Stopped PID $pid (port 8100)"
+            Stop-Process -Id $owningPid -Force -ErrorAction Stop
+            Write-Host "Stopped PID $owningPid (port 8100)"
         } catch {
-            Write-Host "Skip PID ${pid}: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Skip PID ${owningPid}: $($_.Exception.Message)" -ForegroundColor Yellow
         }
     }
 }
@@ -81,13 +126,31 @@ if (-not (Wait-HttpOk "http://127.0.0.1:6333/healthz" 45)) {
 Write-Host "Qdrant ready."
 
 Write-Step "Start RAG service di port 8100"
-Start-Process -FilePath $RagPython `
+$ragProcess = Start-Process -FilePath $RagPython `
     -ArgumentList "-m uvicorn main:app --host 0.0.0.0 --port 8100" `
     -WorkingDirectory $RagPath `
-    -WindowStyle Hidden
+    -WindowStyle Hidden `
+    -RedirectStandardOutput $StdOutLog `
+    -RedirectStandardError $StdErrLog `
+    -PassThru
+
+Start-Sleep -Seconds 2
+if ($ragProcess.HasExited) {
+    Show-LogTail $StdErrLog
+    Show-LogTail $StdOutLog
+    throw "RAG service langsung berhenti setelah start (exit code $($ragProcess.ExitCode))."
+}
 
 Write-Step "Tunggu RAG siap di http://127.0.0.1:8100/health"
 if (-not (Wait-HttpOk "http://127.0.0.1:8100/health" 90)) {
+    try {
+        $ragProcess.Refresh()
+        if ($ragProcess.HasExited) {
+            Write-Host "RAG process exited with code $($ragProcess.ExitCode)." -ForegroundColor Yellow
+        }
+    } catch {}
+    Show-LogTail $StdErrLog
+    Show-LogTail $StdOutLog
     throw "RAG service tidak siap dalam 90 detik."
 }
 

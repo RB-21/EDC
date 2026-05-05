@@ -86,16 +86,61 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Response API kini membawa `follow_up_questions`.
 - UI chat menampilkan saran pertanyaan lanjutan sebagai tombol yang bisa langsung diklik.
 
+13. Vertex-only AI backend
+- FastAPI tidak lagi memilih backend berdasarkan `GEMINI_API_KEY`.
+- Seluruh jalur embedding, generation, dan OCR sekarang memakai client `google-genai` dengan backend Vertex AI.
+- Root endpoint sekarang mengekspos `ai_backend=vertex_ai` untuk verifikasi cepat.
+- Env template, README, dan AI context sudah diselaraskan ke mode Vertex-only.
+
+14. Restart diagnostics hardening
+- `scripts/restart-rag-stack.ps1` kini menyimpan stdout/stderr RAG ke file log.
+- Saat startup gagal atau timeout, script menampilkan tail log agar root cause langsung terlihat.
+- `GEMINI_API_KEY` tetap diterima sebagai env legacy field agar `.env` lama tidak mematahkan startup setelah refactor Vertex-only.
+
+15. Singapore region switch
+- Region Vertex AI aktif dipindahkan dari `us-central1` ke `asia-southeast1` (Singapore).
+- Root/service startup berjalan normal setelah pindah region.
+- Model runtime yang tervalidasi di region ini:
+  - generation: `gemini-2.5-flash`
+  - embedding: `gemini-embedding-001`
+
+16. Restart script admin-safe fix
+- Bug PowerShell `VariableNotWritable` pada loop PID sudah diperbaiki (nama variabel tidak lagi bentrok dengan `$PID` bawaan).
+- Script kini mendukung auto-elevation (`Run as Administrator`) dan opsi `-NoElevate`.
+
+17. FAILED_PRECONDITION diagnosis
+- Error query `400 FAILED_PRECONDITION` terbukti muncul saat runtime mengarah ke `asia-southeast2`.
+- Setelah runtime dikembalikan ke `asia-southeast1`, precondition region tidak lagi menjadi blocker utama.
+- Verifikasi one-off menunjukkan `gemini-2.5-flash`, `text-embedding-005`, dan `gemini-embedding-001` berhasil di `asia-southeast1`.
+
+18. Vertex embedding model switch
+- Runtime embedding diganti dari `gemini-embedding-2` ke `gemini-embedding-001`.
+- Collection aktif dipindahkan ke `edc_documents_vertex_v1` agar embedding space baru tidak tercampur dengan vector lama.
+- Konsekuensi: dokumen perlu diindex ulang ke collection baru sebelum query RAG mengembalikan hasil relevan.
+
+19. PDF image OCR fallback for embeddings
+- Runtime saat ini memakai model text embedding Vertex (`gemini-embedding-001`), bukan image-bytes embedding murni.
+- Untuk `image` chunk dari PDF, backend otomatis fallback ke OCR lalu meng-embed hasil teksnya.
+- Ini menjaga dokumen PDF bergambar / tabel / scan tetap searchable tanpa bergantung pada model `gemini-embedding-2`.
+
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.
-2. Gemini model quota may fail for deprecated/limited models.
+2. Kuota/model availability tetap bergantung pada project Vertex AI dan auth ADC/service account yang aktif.
 3. Existing legacy data (`users`) required SQL-mode workaround during schema change.
+4. Collection baru `edc_documents_vertex_v1` masih kosong sampai proses reindex dijalankan.
+5. Collection lama `edc_documents_v2` memakai embedding space `gemini-embedding-2` dan tidak boleh dicampur dengan runtime `gemini-embedding-001`.
+6. Retrieval untuk konten gambar sekarang bergantung pada kualitas OCR fallback, bukan native multimodal image embedding.
 
 ## Active Defaults
+- `AI_BACKEND=vertex_ai`
 - `RAG_DEFAULT_MODEL=gemini-2.5-flash`
 - `RAG_AVAILABLE_MODELS=gemini-2.5-flash`
+- `COLLECTION_NAME=edc_documents_vertex_v1`
+- `EMBEDDING_MODEL=gemini-embedding-001`
+- `GOOGLE_CLOUD_LOCATION=asia-southeast1`
 
 ## Verification Snapshot
-- RAG `/health`: healthy
+- RAG `/health`: degraded (`gcp_connected=false`)
 - Container app -> `host.docker.internal:8100/health`: reachable
-- RAG `/query` with `gemini-2.5-flash`: success
+- RAG startup via `restart-rag-stack.ps1`: process start OK, logs captured
+- Python syntax check after Vertex-only refactor: pass

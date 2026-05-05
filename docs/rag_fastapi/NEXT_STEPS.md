@@ -1,28 +1,45 @@
 # Next Steps
 
 ## High Priority
-1. Relevance policy validation (multi-document)
+1. Vertex runtime smoke test
+- Jalankan `/health` dan 1 query nyata untuk memastikan auth Vertex AI berhasil.
+- Verifikasi `ai_backend=vertex_ai` muncul di root endpoint.
+- Pastikan `GOOGLE_APPLICATION_CREDENTIALS` atau ADC host benar-benar aktif di environment target.
+- Jalankan restart script sekali dari non-admin shell untuk validasi auto-elevation path.
+- Pastikan runtime tetap di `asia-southeast1`; jangan kembali ke `asia-southeast2` karena terbukti memicu `FAILED_PRECONDITION`.
+
+2. Reindex ke collection Vertex baru
+- Collection aktif sekarang `edc_documents_vertex_v1`.
+- Jalankan indexing ulang dokumen yang dibutuhkan ke collection baru.
+- Verifikasi query hanya memakai vector yang berasal dari `gemini-embedding-001`.
+- Verifikasi beberapa PDF yang berisi gambar/tabel/scan untuk memastikan OCR fallback menghasilkan teks yang cukup baik.
+
+3. Cleanup model lama
+- Tandai `edc_documents_v2` sebagai collection legacy berbasis `gemini-embedding-2`.
+- Putuskan apakah collection lama akan dipertahankan sementara atau dihapus setelah reindex selesai.
+
+4. Relevance policy validation (multi-document)
 - Uji query yang hanya relevan ke satu dokumen: pastikan hanya dokumen utama tampil.
 - Uji query komparatif lintas dokumen: pastikan dokumen tambahan muncul hanya jika skor mendekati dokumen utama.
 - Verifikasi batas `source_max_documents` dan `source_context_per_document` bekerja konsisten.
 
-2. Follow-up questions UX validation
+5. Follow-up questions UX validation
 - Pastikan backend selalu mengembalikan `follow_up_questions` saat format model valid.
 - Uji fallback saat blok `[FOLLOW_UP_QUESTIONS]` tidak ada (UI tidak error, tombol tidak muncul).
 - Klik tombol saran harus mengisi input pertanyaan dengan benar.
 
-3. UI smoke test on `admin/rag/chat`
+6. UI smoke test on `admin/rag/chat`
 - Confirm full-width/full-height layout
 - Confirm model selector in toolbar works
 - Confirm filter jenis/bagian removed
 
-4. End-to-end chat persistence test
+7. End-to-end chat persistence test
 - Send 2-3 queries
 - Reload page
 - Re-open session from dropdown
 - Validate message history reloaded correctly
 
-5. Token accounting validation
+8. Token accounting validation
 - Capture token before query
 - Send query
 - Validate `ai_token_balance` decrement equals `usage.total_tokens`
@@ -33,9 +50,9 @@
 - Top models used
 - Remaining balance alerts
 
-2. Stronger quota fallback strategy
-- Detect 429 and auto-fallback to allowed backup model
-- Return human-friendly response with retry guidance
+2. Vertex auth hardening
+- Tambahkan pemeriksaan health/auth yang lebih spesifik untuk ADC vs service account file.
+- Bersihkan secret/config lama yang tidak lagi dipakai (`GEMINI_API_KEY`) setelah verifikasi selesai.
 
 3. Reduce CLI warning noise
 - Optional PHP/runtime tuning for cleaner migration logs in local dev
