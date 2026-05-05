@@ -75,6 +75,17 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Frontend formatter menormalkan pola daftar tanggal Indonesia (`N. DD Bulan ...`)
   menjadi bullet list agar tidak muncul tampilan nomor ganda seperti `1. 1 Januari`.
 
+11. Relevance-based multi-document policy
+- Dokumen utama (similarity tertinggi) tetap wajib tampil.
+- Dokumen tambahan ditampilkan jika skor dokumennya cukup dekat/relevan terhadap dokumen utama.
+- Frontend menampilkan sumber berdasarkan relevansi per-dokumen (bukan strict satu dokumen).
+- Prompt enforcement menuntut `Ringkasan Dokumen` minimal 5 poin secara default.
+
+12. Follow-up suggestions
+- Backend mengekstrak blok `[FOLLOW_UP_QUESTIONS]` dari output model.
+- Response API kini membawa `follow_up_questions`.
+- UI chat menampilkan saran pertanyaan lanjutan sebagai tombol yang bisa langsung diklik.
+
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.
 2. Gemini model quota may fail for deprecated/limited models.

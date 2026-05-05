@@ -289,6 +289,30 @@
             line-height: 1.35;
         }
 
+        .followup-section {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #d7dce5;
+        }
+
+        .followup-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+
+        .followup-btn {
+            border: 1px solid #c7d2fe;
+            color: #4338ca;
+            background: #eef2ff;
+            border-radius: 999px;
+            font-size: 11px;
+            padding: 4px 10px;
+            margin: 0 6px 6px 0;
+            cursor: pointer;
+        }
+
         /* ===== Status Badge ===== */
         .status-badge {
             display: inline-flex;
@@ -536,6 +560,8 @@
         const MAX_HISTORY = 5;
         const SOURCE_MIN_SCORE_RATIO = 0.70;
         const SOURCE_MIN_SCORE_ABSOLUTE = 0.0;
+        const SOURCE_RELATED_DOC_RATIO = 0.87;
+        const SOURCE_MAX_DOCS_DISPLAY = 3;
         let currentSessionId = null;
         let pendingQuestion = null;
 
@@ -705,8 +731,34 @@
                 .filter(function(item) { return item.score >= cutoff; })
                 .map(function(item) { return item.source; });
 
-            if (filtered.length > 0) return filtered;
-            return [withScore.sort(function(a, b) { return b.score - a.score; })[0].source];
+            const base = filtered.length > 0 ? filtered : withScore.sort(function(a, b) { return b.score - a.score; }).map(function(item) { return item.source; });
+            if (base.length === 0) return [];
+
+            const docBest = {};
+            base.forEach(function(source) {
+                const key = source.doc_id || source.filename || 'unknown';
+                const scoreNumber = Number(source.score);
+                const score = Number.isFinite(scoreNumber) ? scoreNumber : 0;
+                if (typeof docBest[key] === 'undefined' || score > docBest[key]) {
+                    docBest[key] = score;
+                }
+            });
+
+            const rankedDocs = Object.entries(docBest).sort(function(a, b) { return b[1] - a[1]; });
+            const topDocScore = rankedDocs.length > 0 ? rankedDocs[0][1] : 0;
+            const docCutoff = topDocScore * SOURCE_RELATED_DOC_RATIO;
+            const selectedDocKeys = rankedDocs
+                .filter(function(entry, idx) {
+                    if (idx === 0) return true;
+                    return entry[1] >= docCutoff;
+                })
+                .slice(0, SOURCE_MAX_DOCS_DISPLAY)
+                .map(function(entry) { return entry[0]; });
+
+            return base.filter(function(source) {
+                const key = source.doc_id || source.filename || 'unknown';
+                return selectedDocKeys.indexOf(String(key)) !== -1;
+            });
         }
 
         function formatSources(sources) {
@@ -771,6 +823,26 @@
                 ' | Total: ' + (usage.total_tokens || 0) + '</div>';
         }
 
+        function formatFollowUpQuestions(questions) {
+            if (!Array.isArray(questions) || questions.length === 0) return '';
+            const uniqueQuestions = [];
+            questions.forEach(function(q) {
+                const qq = String(q || '').trim();
+                if (qq && uniqueQuestions.indexOf(qq) === -1) uniqueQuestions.push(qq);
+            });
+            if (uniqueQuestions.length === 0) return '';
+
+            let html = '<div class="followup-section">';
+            html += '<div class="followup-label"><i class="fas fa-lightbulb mr-1"></i>Saran pertanyaan lanjutan</div>';
+            uniqueQuestions.slice(0, 3).forEach(function(q) {
+                html += '<button type="button" class="followup-btn" data-question="' + $('<div/>').text(q).html() + '">' +
+                    $('<div/>').text(q).html() +
+                    '</button>';
+            });
+            html += '</div>';
+            return html;
+        }
+
         function rebuildHistoryFromMessages(messages) {
             chatHistory.length = 0;
             pendingQuestion = null;
@@ -832,7 +904,12 @@
                     if (m.role === 'user') {
                         appendMessage('user', $('<div/>').text(m.content).html());
                     } else {
-                        appendMessage('ai', formatAnswer(m.content || '') + formatSources(m.sources || []) + formatUsage(m.usage || {}));
+                        appendMessage('ai',
+                            formatAnswer(m.content || '') +
+                            formatSources(m.sources || []) +
+                            formatUsage(m.usage || {}) +
+                            formatFollowUpQuestions(m.follow_up_questions || [])
+                        );
                     }
                 });
 
@@ -891,7 +968,12 @@
                     const rawAnswer = (typeof data.answer === 'string' && data.answer.trim() !== '')
                         ? data.answer
                         : 'Tidak ada jawaban ditemukan.';
-                    appendMessage('ai', formatAnswer(rawAnswer) + formatSources(data.sources || []) + formatUsage(data.usage || {}));
+                    appendMessage('ai',
+                        formatAnswer(rawAnswer) +
+                        formatSources(data.sources || []) +
+                        formatUsage(data.usage || {}) +
+                        formatFollowUpQuestions(data.follow_up_questions || [])
+                    );
                     chatHistory.push({ question: question, answer: rawAnswer });
                 },
                 error: function(xhr) {
@@ -974,6 +1056,13 @@
                     loadSessions();
                 }
             });
+        });
+
+        chatContainer.on('click', '.followup-btn', function() {
+            const q = $(this).data('question');
+            if (!q) return;
+            questionInput.val(String(q));
+            questionInput.focus();
         });
 
         resetWelcomeMessage();

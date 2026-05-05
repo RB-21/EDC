@@ -144,6 +144,7 @@ class RagController extends Controller
                     'role' => $message->role === 'assistant' ? 'ai' : 'user',
                     'content' => (string) $message->message,
                     'sources' => $meta['sources'] ?? [],
+                    'follow_up_questions' => $meta['follow_up_questions'] ?? [],
                     'usage' => [
                         'prompt_tokens' => (int) ($message->prompt_tokens ?? 0),
                         'completion_tokens' => (int) ($message->completion_tokens ?? 0),
@@ -272,6 +273,7 @@ class RagController extends Controller
 
             $answer = (string) ($result['answer'] ?? '');
             $sources = $result['sources'] ?? [];
+            $followUpQuestions = array_values(array_filter((array) ($result['follow_up_questions'] ?? [])));
             $usage = $result['usage'] ?? [];
 
             $promptTokens = (int) ($usage['prompt_tokens'] ?? 0);
@@ -295,6 +297,7 @@ class RagController extends Controller
                 $question,
                 $answer,
                 $sources,
+                $followUpQuestions,
                 $selectedModel,
                 $promptTokens,
                 $completionTokens,
@@ -323,6 +326,7 @@ class RagController extends Controller
                     'total_tokens' => $totalTokens,
                     'meta' => [
                         'sources' => $sources,
+                        'follow_up_questions' => $followUpQuestions,
                     ],
                 ]);
 
@@ -345,6 +349,7 @@ class RagController extends Controller
             $result['session_id'] = $session->id;
             $result['token_balance'] = $newBalance;
             $result['model'] = $selectedModel;
+            $result['follow_up_questions'] = $followUpQuestions;
 
             return response()->json($result);
         } catch (\Exception $e) {

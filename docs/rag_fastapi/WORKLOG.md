@@ -214,3 +214,62 @@ Files:
 
 Verification:
 - Script front-end berhasil diupdate tanpa error syntax pada struktur Blade/JS.
+
+---
+
+## 2026-05-04 17:40-18:00 (Asia/Jakarta)
+Scope:
+- Memastikan default retrieval hanya memakai satu dokumen utama (top similarity).
+- Memastikan sumber dokumen di UI hanya menampilkan dokumen utama.
+- Memaksa output ringkasan dokumen tampil lebih lengkap secara default.
+
+Perbaikan:
+- Backend RAG:
+  - Setelah hybrid search awal, service mengunci dokumen utama berdasarkan score tertinggi.
+  - Service melakukan re-fetch konteks tambahan hanya untuk dokumen utama (top-1 doc).
+- Frontend chat:
+  - Guard filtering sumber kini hanya mengizinkan satu dokumen (dokumen utama) tampil.
+- Prompt enforcement:
+  - Ditambahkan aturan wajib sistem agar `Ringkasan Dokumen` berisi minimal 5 poin.
+
+Files:
+- `../EDC AI RAG/main.py`
+- `../EDC AI RAG/app/config.py`
+- `../EDC AI RAG/app/vector_store.py`
+- `../EDC AI RAG/app/embedding.py`
+- `resources/views/admin/rag/chat.blade.php`
+
+Risks:
+- Untuk pertanyaan yang memang butuh perbandingan antar dokumen, mode top-1 doc bisa terasa terlalu ketat.
+
+---
+
+## 2026-05-04 18:05-18:35 (Asia/Jakarta)
+Scope:
+- Mengubah mode strict satu dokumen menjadi mode multi-dokumen berbasis relevansi.
+- Menambahkan fitur saran pertanyaan lanjutan pada response dan UI chat.
+
+Perbaikan:
+- Backend retrieval:
+  - Dokumen utama tetap diprioritaskan.
+  - Dokumen kedua/ketiga bisa ikut jika skor dokumen mendekati dokumen utama (`source_related_doc_score_ratio`).
+  - Konteks diambil per dokumen terpilih (`source_context_per_document`).
+- Backend generation:
+  - Prompt kini mewajibkan blok `[FOLLOW_UP_QUESTIONS]`.
+  - Parser mengekstrak 3 saran pertanyaan dari output model.
+- Frontend:
+  - Sumber dokumen ditampilkan berdasarkan relevansi dokumen (bukan paksa satu dokumen).
+  - Saran pertanyaan lanjutan ditampilkan sebagai tombol klik otomatis isi input.
+- Persistence:
+  - `follow_up_questions` disimpan di `meta` assistant message dan tampil saat membuka riwayat.
+
+Files:
+- `../EDC AI RAG/main.py`
+- `../EDC AI RAG/app/config.py`
+- `../EDC AI RAG/app/embedding.py`
+- `../EDC AI RAG/app/models.py`
+- `resources/views/admin/rag/chat.blade.php`
+- `app/Http/Controllers/Admin/RagController.php`
+
+Risks:
+- Jika model tidak mengikuti format `[FOLLOW_UP_QUESTIONS]`, fallback saat ini adalah daftar kosong.
