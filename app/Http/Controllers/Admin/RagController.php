@@ -492,14 +492,38 @@ class RagController extends Controller
     {
         $normalized = Str::lower(trim($question));
         $normalized = preg_replace('/\s+/', ' ', $normalized ?? '') ?? '';
+        $jenisInfo = $this->inferJenisFileFromQuestion($normalized, $requestedJenisFile);
+        $jenisPatterns = [];
+        if ($jenisInfo !== null) {
+            foreach (array_filter([
+                Str::lower((string) ($jenisInfo['kode'] ?? '')),
+                Str::lower((string) ($jenisInfo['display'] ?? '')),
+            ]) as $term) {
+                $jenisPatterns[] = preg_quote($term, '/');
+            }
+        }
+
+        $documentTerms = [
+            'dokumen',
+            'surat',
+            'file',
+            'arsip',
+            'berkas',
+        ];
+
+        if (!empty($jenisPatterns)) {
+            $documentTerms = array_merge($documentTerms, $jenisPatterns);
+        }
+
+        $documentPattern = '/\b(?:' . implode('|', array_unique($documentTerms)) . ')\b/u';
+        $listPattern = '/\b(?:apa saja|daftar|list|yang tersedia|yang ada|tersedia|ada)\b/u';
 
         $generalPatterns = [
-            '/\bapa saja\b/',
-            '/\bdaftar\b/',
-            '/\bdokumen yang tersedia\b/',
-            '/\bdokumen tersedia\b/',
-            '/\bdokumen yang ada\b/',
-            '/\bada dokumen\b/',
+            '/\bdaftar\s+(?:dokumen|arsip|berkas|file)\b/u',
+            '/\b(?:dokumen|arsip|berkas|file)\b.*\b(?:apa saja|yang tersedia|yang ada|tersedia)\b/u',
+            '/\b(?:apa saja|yang tersedia|yang ada|tersedia)\b.*\b(?:dokumen|arsip|berkas|file)\b/u',
+            '/\bada\s+(?:dokumen|arsip|berkas|file)\b/u',
+            '/^(?:dokumen|daftar dokumen)$/u',
         ];
 
         $isGeneralCatalogQuery = false;
@@ -510,18 +534,23 @@ class RagController extends Controller
             }
         }
 
-        $jenisInfo = $this->inferJenisFileFromQuestion($normalized, $requestedJenisFile);
-
         if (!$isGeneralCatalogQuery && $jenisInfo !== null) {
             $compact = trim($normalized);
-            $jenisTerms = preg_quote(Str::lower($jenisInfo['display']), '/');
-            $kodeTerms = preg_quote(Str::lower($jenisInfo['kode']), '/');
-            if (preg_match('/^(ada\s+)?dokumen\s+(' . $kodeTerms . '|' . $jenisTerms . ')$/', $compact)) {
+            $jenisAlternatives = implode('|', array_unique($jenisPatterns));
+            if (
+                $jenisAlternatives !== '' &&
+                preg_match('/^(?:(?:ada|daftar|list)\s+)?(?:dokumen\s+)?(?:' . $jenisAlternatives . ')(?:\s+(?:apa saja|yang tersedia|yang ada|tersedia))?$/u', $compact)
+            ) {
                 $isGeneralCatalogQuery = true;
             }
         }
 
-        if (!$isGeneralCatalogQuery && preg_match('/^(dokumen|daftar dokumen)$/', $normalized)) {
+        if (
+            !$isGeneralCatalogQuery &&
+            $jenisInfo !== null &&
+            preg_match($documentPattern, $normalized) &&
+            preg_match($listPattern, $normalized)
+        ) {
             $isGeneralCatalogQuery = true;
         }
 

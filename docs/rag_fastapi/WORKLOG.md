@@ -1,5 +1,24 @@
 # Worklog
 
+## 2026-05-06 10:05-10:20 (Asia/Jakarta)
+Scope:
+- Memperketat deteksi intent katalog dokumen agar pertanyaan isi dokumen yang memakai frasa umum seperti `apa saja` tidak salah diarahkan ke mode daftar dokumen.
+- Kasus yang diperbaiki: follow-up tentang dokumen In-tank seperti `Apa saja produk komoditi yang dimaksud dalam sistem In-tank ini?` kini tetap diproses sebagai pertanyaan konten dokumen.
+
+Files:
+- `app/Http/Controllers/Admin/RagController.php`
+- `docs/rag_fastapi/WORKLOG.md`
+- `docs/rag_fastapi/HANDOVER_STATUS.md`
+- `docs/rag_fastapi/NEXT_STEPS.md`
+
+Verification:
+- `php -l app/Http/Controllers/Admin/RagController.php`
+
+Risks:
+- Heuristik katalog masih berbasis pola teks; query yang sangat pendek dan ambigu tetap perlu divalidasi lagi lewat smoke test browser.
+
+---
+
 ## 2026-05-04 13:00-14:35 (Asia/Jakarta)
 Scope:
 - Fixed RAG connectivity incidents (`cURL error 7`, `WinError 10061`)

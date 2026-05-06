@@ -44,6 +44,7 @@
 - Confirm seluruh label assistant tampil sebagai `N4R4 AI Assistance`
 - Confirm bubble user tidak menampilkan payload internal `[Konteks percakapan sebelumnya]`.
 - Confirm pertanyaan katalog seperti `dokumen SOP apa saja` menampilkan daftar dokumen, bukan ringkasan satu dokumen.
+- Confirm follow-up konten seperti `Apa saja produk komoditi...` setelah membahas satu dokumen tidak salah masuk ke mode katalog.
 
 8. Floating widget smoke test (all roles)
 - Buka halaman dashboard/dokumen pada role admin, user, operator, dan tamu.

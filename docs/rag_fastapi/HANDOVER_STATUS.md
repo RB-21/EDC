@@ -1,6 +1,6 @@
 # Handover Status
 
-Last updated: 2026-05-05
+Last updated: 2026-05-06
 
 ## Current Objective
 Stabilize and evolve EDC AI Assistant into production-like chat:
@@ -138,6 +138,11 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 23. Dynamic prompt layering via EDC
 - Pengaturan prompt kini dipisah menjadi dua lapisan:
   - `Prompt Template`: susunan prompt utama + placeholder konteks/pertanyaan
+
+24. Catalog intent false-positive fix
+- Deteksi mode daftar dokumen tidak lagi aktif hanya karena frasa umum seperti `apa saja`.
+- Intent katalog sekarang butuh sinyal yang lebih spesifik ke daftar dokumen, misalnya `dokumen apa saja`, `daftar dokumen`, `dokumen SOP`, atau kombinasi jenis dokumen + sinyal list/ketersediaan.
+- Dampak: follow-up isi dokumen seperti `Apa saja produk komoditi yang dimaksud dalam sistem In-tank ini?` tetap masuk ke alur RAG normal, bukan dibelokkan ke daftar dokumen.
   - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
 - EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
 - Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.
