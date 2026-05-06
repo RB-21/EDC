@@ -130,6 +130,36 @@
             color: #e53e3e;
         }
 
+        .chat-bubble .answer-text .table-wrap {
+            margin: 8px 0;
+            overflow-x: auto;
+        }
+
+        .chat-bubble .answer-text table {
+            width: 100%;
+            min-width: 420px;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }
+
+        .chat-bubble .answer-text th,
+        .chat-bubble .answer-text td {
+            border: 1px solid #d9e2ec;
+            padding: 6px 8px;
+            vertical-align: top;
+            text-align: left;
+        }
+
+        .chat-bubble .answer-text th {
+            background: #f8fafc;
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        .chat-bubble .answer-text tr:nth-child(even) td {
+            background: #fcfdff;
+        }
+
         /* ===== Sources Section ===== */
         .chat-bubble .sources-section {
             margin-top: 12px;
@@ -653,15 +683,84 @@
                 let result = [];
                 let inList = false;
                 let listType = null;
+                
+                function closeListIfOpen() {
+                    if (inList) {
+                        result.push('</' + listType + '>');
+                        inList = false;
+                        listType = null;
+                    }
+                }
+
+                function isMarkdownTableRow(line) {
+                    if (!line || line.indexOf('|') === -1) return false;
+                    const trimmed = line.trim();
+                    return trimmed.startsWith('|') && trimmed.endsWith('|');
+                }
+
+                function isMarkdownTableSeparator(line) {
+                    if (!isMarkdownTableRow(line)) return false;
+                    const content = line.trim().slice(1, -1).trim();
+                    return /^[:\-\s|]+$/.test(content) && content.indexOf('-') !== -1;
+                }
+
+                function splitMarkdownTableRow(line) {
+                    return line.trim()
+                        .replace(/^\|/, '')
+                        .replace(/\|$/, '')
+                        .split('|')
+                        .map(function (cell) {
+                            return cell.trim();
+                        });
+                }
 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i].trim();
                     const ulMatch = line.match(/^[-*]\s+(.+)$/);
                     const olMatch = line.match(/^\d+\.\s+(.+)$/);
 
+                    if (
+                        isMarkdownTableRow(line) &&
+                        i + 1 < lines.length &&
+                        isMarkdownTableSeparator(lines[i + 1].trim())
+                    ) {
+                        closeListIfOpen();
+                        const headerCells = splitMarkdownTableRow(line);
+                        const tableRows = [];
+                        i += 2;
+
+                        while (i < lines.length) {
+                            const rowLine = lines[i].trim();
+                            if (!isMarkdownTableRow(rowLine) || isMarkdownTableSeparator(rowLine)) {
+                                i -= 1;
+                                break;
+                            }
+                            tableRows.push(splitMarkdownTableRow(rowLine));
+                            i += 1;
+                        }
+
+                        let tableHtml = '<div class="table-wrap"><table><thead><tr>';
+                        headerCells.forEach(function (cell) {
+                            tableHtml += '<th>' + cell + '</th>';
+                        });
+                        tableHtml += '</tr></thead><tbody>';
+
+                        tableRows.forEach(function (rowCells) {
+                            tableHtml += '<tr>';
+                            headerCells.forEach(function (_, cellIndex) {
+                                tableHtml += '<td>' + (rowCells[cellIndex] || '') + '</td>';
+                            });
+                            tableHtml += '</tr>';
+                        });
+
+                        tableHtml += '</tbody></table></div>';
+                        result.push(tableHtml);
+                        continue;
+                    }
+
                     if (ulMatch) {
                         if (!inList || listType !== 'ul') {
-                            if (inList) result.push('</' + listType + '>');
+                            closeListIfOpen();
                             result.push('<ul>');
                             inList = true;
                             listType = 'ul';
@@ -669,18 +768,14 @@
                         result.push('<li>' + ulMatch[1] + '</li>');
                     } else if (olMatch) {
                         if (!inList || listType !== 'ol') {
-                            if (inList) result.push('</' + listType + '>');
+                            closeListIfOpen();
                             result.push('<ol>');
                             inList = true;
                             listType = 'ol';
                         }
                         result.push('<li>' + olMatch[1] + '</li>');
                     } else {
-                        if (inList) {
-                            result.push('</' + listType + '>');
-                            inList = false;
-                            listType = null;
-                        }
+                        closeListIfOpen();
                         if (line === '') {
                             result.push('<br>');
                         } else if (line.startsWith('<h4>')) {
@@ -690,7 +785,7 @@
                         }
                     }
                 }
-                if (inList) result.push('</' + listType + '>');
+                closeListIfOpen();
                 return '<div class="answer-text">' + result.join('') + '</div>';
             }
 

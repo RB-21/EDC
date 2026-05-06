@@ -7,10 +7,13 @@ Scope:
   - bypass katalog saat user merujuk ke `dokumen ini` / `surat ini`
   - konfigurasi pattern intent routing yang bisa diubah dari dashboard EDC
 - Menyiapkan rollout SQL manual saja, tanpa migration Laravel baru.
+- Menambahkan renderer markdown table di chat utama dan widget agar output tabel dari model tidak tampil sebagai plain text pipe markdown.
 
 Files:
 - `app/Http/Controllers/Admin/RagController.php`
 - `app/Models/AiChatSession.php`
+- `resources/views/admin/rag/chat.blade.php`
+- `resources/views/partials/n4ra-assistance-widget.blade.php`
 - `resources/views/admin/rag/settings.blade.php`
 - `docs/rag_fastapi/sql/2026_05_04_ai_chat_schema.sql`
 - `docs/rag_fastapi/sql/2026_05_06_ai_intent_routing_and_session_meta.sql`

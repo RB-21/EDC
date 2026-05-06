@@ -152,6 +152,10 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Pola `catalog intent` dan `active document reference` sekarang bisa diatur melalui menu `AI Prompt Settings`.
 - Rollout skema dilakukan lewat SQL manual:
   - `docs/rag_fastapi/sql/2026_05_06_ai_intent_routing_and_session_meta.sql`
+
+26. Markdown table rendering
+- Frontend chat utama dan widget sekarang mengenali markdown table (`| kolom |`) dari output model.
+- Tabel dirender menjadi HTML table dengan wrapper horizontal scroll agar tetap terbaca di desktop maupun mobile.
   - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
 - EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
 - Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.
