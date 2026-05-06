@@ -1,6 +1,6 @@
 # Handover Status
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
 ## Current Objective
 Stabilize and evolve EDC AI Assistant into production-like chat:
@@ -172,6 +172,16 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 29. Default widget state = percakapan baru
 - Saat widget dibuka, tampilan awal kini selalu percakapan baru (greeting), bukan auto-load session lama.
 - Riwayat chat tetap tersedia di dropdown dan bisa dipilih manual kapan saja.
+
+30. Web Error Fix: "Class 'view' does not exist"
+- Root cause: `bootstrap/cache` not writable.
+- Fix: Set permissions to 777 and cleared optimization caches.
+- Verification: `view()->exists()` confirmed working via Tinker.
+
+31. Mixed Content and SRI Error Fixes
+- Issue: DataTables blocked due to HTTP AJAX on HTTPS site; `moment.js` blocked by SRI.
+- Fix: Updated `APP_URL` to HTTPS, enabled `TrustProxies`, forced HTTPS scheme in `AppServiceProvider`, and removed `integrity` from `moment.js`.
+- Files: `.env`, `TrustProxies.php`, `AppServiceProvider.php`, multiple Blade views.
 
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.

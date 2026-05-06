@@ -759,3 +759,56 @@ Verification:
 
 Risks:
 - Jika user berharap auto-resume session lama setelah refresh, perilaku itu kini dinonaktifkan by default.
+
+---
+
+## 2026-05-05 16:25-16:30 (Asia/Jakarta)
+Scope:
+- Perbaikan fatal error website "Class 'view' does not exist".
+
+Root cause:
+- Direktori `bootstrap/cache` tidak memiliki izin tulis bagi server web.
+
+Perbaikan:
+- Mengubah izin direktori `bootstrap/cache` menjadi 777.
+- Membersihkan cache aplikasi menggunakan `php artisan optimize:clear`.
+
+Files:
+- `bootstrap/cache` (permissions)
+
+Verification:
+- `php artisan tinker` mengonfirmasi servis `view` sudah aktif (exists).
+- Log Laravel tidak lagi menunjukkan error baru setelah perbaikan.
+
+Risks:
+- Pengaturan izin 777 adalah solusi cepat; kedepannya pemilik file sebaiknya diselaraskan dengan user server web.
+
+---
+
+## 2026-05-05 16:30-16:35 (Asia/Jakarta)
+Scope:
+- Perbaikan Mixed Content (HTTPS) dan SRI (moment.js) error pada Master Dokumen.
+
+Root cause:
+- `APP_URL` di `.env` masih HTTP, sedangkan situs diakses via HTTPS (memicu Mixed Content pada AJAX DataTables).
+- Hash SRI pada tag script `moment.js` tidak cocok dengan konten CDN (memicu pemblokiran resource).
+
+Perbaikan:
+- Update `.env`: `APP_URL=https://edc.ptpn4.com` dan tambah `FORCE_HTTPS=true`.
+- Update `TrustProxies.php`: Set `$proxies = '*'`.
+- Update `AppServiceProvider.php`: Tambah logika `URL::forceScheme('https')` jika `FORCE_HTTPS` aktif.
+- Views: Menghapus atribut `integrity` dan `crossorigin` pada seluruh pemanggilan `moment.js` di folder `resources/views`.
+- Menjalankan `php artisan optimize:clear` untuk menerapkan perubahan config.
+
+Files:
+- `.env`
+- `app/Http/Middleware/TrustProxies.php`
+- `app/Providers/AppServiceProvider.php`
+- `resources/views/admin/dokumen/index.blade.php`
+- `resources/views/admin/dokumen/index_by_jenis.blade.php`
+- `resources/views/operator/dokumen/index.blade.php`
+- `resources/views/operator/dokumen/index_by_jenis.blade.php`
+
+Verification:
+- Konfigurasi telah diterapkan dan cache dibersihkan.
+- Panggilan `route()` sekarang dipaksa menggunakan skema HTTPS.
