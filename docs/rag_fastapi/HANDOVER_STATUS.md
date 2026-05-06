@@ -189,6 +189,11 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
   - `question_context`: prompt teraugmentasi konteks untuk query RAG.
 - UI chat admin + widget kini menormalkan record lama agar bagian konteks internal tidak tampil sebagai bubble user.
 
+33. Catalog-intent response for general document questions
+- Pertanyaan yang sifatnya umum/katalog dokumen (mis. `dokumen SOP apa saja`, `ada dokumen apa saja`, `dokumen SOP`) kini tidak langsung masuk jalur ringkasan satu dokumen.
+- Backend akan menjawab dengan daftar dokumen tersedia yang sudah ter-index, disaring berdasarkan jenis dokumen yang diminta dan hak akses user.
+- User kemudian diarahkan untuk memilih nomor/judul dokumen yang ingin diringkas lebih lanjut.
+
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.
 2. Kuota/model availability tetap bergantung pada project Vertex AI dan auth ADC/service account yang aktif.

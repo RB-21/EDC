@@ -818,6 +818,35 @@ Risks:
 
 ---
 
+## 2026-05-06 09:40-10:00 (Asia/Jakarta)
+Scope:
+- Mengubah perilaku chat untuk pertanyaan yang sifatnya umum/katalog dokumen agar tidak langsung merangkum satu dokumen.
+
+Root cause:
+- Semua pertanyaan sebelumnya selalu masuk jalur RAG retrieval biasa.
+- Untuk pertanyaan seperti "dokumen SOP apa saja", retrieval akan tetap memilih beberapa chunk teratas, lalu model menganggap user sedang meminta jawaban berbasis satu dokumen utama.
+
+Perbaikan:
+- Menambahkan deteksi intent katalog di `RagController`.
+- Jika pertanyaan terdeteksi sebagai permintaan daftar dokumen umum (contoh: `dokumen SOP apa saja`, `ada dokumen apa saja`, `dokumen SOP`), sistem:
+  - tidak memanggil jalur RAG summary biasa
+  - mengambil daftar dokumen yang sudah ter-index
+  - memfilter berdasarkan jenis dokumen yang diminta jika ada
+  - memfilter juga berdasarkan hak akses jenis dokumen user
+  - mengembalikan daftar dokumen yang tersedia + follow-up question untuk memilih dokumen yang ingin diringkas
+- Jalur ini tidak memotong token user karena tidak memanggil LLM generation.
+
+Files:
+- `app/Http/Controllers/Admin/RagController.php`
+
+Verification:
+- `php -l app/Http/Controllers/Admin/RagController.php` lulus.
+
+Risks:
+- Heuristik intent katalog masih berbasis pattern teks; frasa yang sangat tidak lazim mungkin belum terdeteksi sebagai permintaan daftar dokumen.
+
+---
+
 ## 2026-05-05 16:30-16:35 (Asia/Jakarta)
 Scope:
 - Perbaikan Mixed Content (HTTPS) dan SRI (moment.js) error pada Master Dokumen.

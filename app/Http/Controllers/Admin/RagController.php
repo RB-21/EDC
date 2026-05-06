@@ -7,6 +7,7 @@ use App\Models\AiChatMessage;
 use App\Models\AiChatSession;
 use App\Models\AiSetting;
 use App\Models\Dokumen;
+use App\Models\MasterJenisFile;
 use App\Services\RagService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -245,6 +246,7 @@ class RagController extends Controller
         ]);
 
         $user = $request->user();
+        $question = trim((string) $request->input('question'));
         $availableModels = $this->getAllowedModelsForUser($user);
         $selectedModel = $request->input('model') ?: (config('services.rag.default_model', 'gemini-2.0-flash'));
 
@@ -254,6 +256,17 @@ class RagController extends Controller
                 'answer' => 'Model yang dipilih tidak diizinkan untuk akun Anda.',
                 'sources' => [],
             ], 422);
+        }
+
+        $catalogIntent = $this->detectCatalogIntent($question, $request->input('jenis_file'));
+        if ($catalogIntent !== null) {
+            return $this->respondWithCatalogSuggestion(
+                $user,
+                $request->input('session_id'),
+                $selectedModel,
+                $question,
+                $catalogIntent
+            );
         }
 
         $currentBalance = (int) ($user->ai_token_balance ?? 0);
@@ -266,7 +279,6 @@ class RagController extends Controller
         }
 
         try {
-            $question = (string) $request->input('question');
             $questionContext = trim((string) $request->input('question_context', ''));
             $questionForRag = $questionContext !== '' ? $questionContext : $question;
 
@@ -474,6 +486,216 @@ class RagController extends Controller
     {
         $raw = max(1, (int) ceil((mb_strlen($question) + mb_strlen($answer)) / 4));
         return max(1, $raw);
+    }
+
+    private function detectCatalogIntent(string $question, ?string $requestedJenisFile = null): ?array
+    {
+        $normalized = Str::lower(trim($question));
+        $normalized = preg_replace('/\s+/', ' ', $normalized ?? '') ?? '';
+
+        $generalPatterns = [
+            '/\bapa saja\b/',
+            '/\bdaftar\b/',
+            '/\bdokumen yang tersedia\b/',
+            '/\bdokumen tersedia\b/',
+            '/\bdokumen yang ada\b/',
+            '/\bada dokumen\b/',
+        ];
+
+        $isGeneralCatalogQuery = false;
+        foreach ($generalPatterns as $pattern) {
+            if (preg_match($pattern, $normalized)) {
+                $isGeneralCatalogQuery = true;
+                break;
+            }
+        }
+
+        $jenisInfo = $this->inferJenisFileFromQuestion($normalized, $requestedJenisFile);
+
+        if (!$isGeneralCatalogQuery && $jenisInfo !== null) {
+            $compact = trim($normalized);
+            $jenisTerms = preg_quote(Str::lower($jenisInfo['display']), '/');
+            $kodeTerms = preg_quote(Str::lower($jenisInfo['kode']), '/');
+            if (preg_match('/^(ada\s+)?dokumen\s+(' . $kodeTerms . '|' . $jenisTerms . ')$/', $compact)) {
+                $isGeneralCatalogQuery = true;
+            }
+        }
+
+        if (!$isGeneralCatalogQuery && preg_match('/^(dokumen|daftar dokumen)$/', $normalized)) {
+            $isGeneralCatalogQuery = true;
+        }
+
+        if (!$isGeneralCatalogQuery) {
+            return null;
+        }
+
+        return [
+            'jenis_file' => $jenisInfo['kode'] ?? $requestedJenisFile,
+            'jenis_label' => $jenisInfo['display'] ?? null,
+        ];
+    }
+
+    private function inferJenisFileFromQuestion(string $question, ?string $requestedJenisFile = null): ?array
+    {
+        if ($requestedJenisFile) {
+            $jenis = MasterJenisFile::where('kode', $requestedJenisFile)->first();
+            if ($jenis) {
+                return [
+                    'kode' => $jenis->kode,
+                    'display' => $jenis->singkatan ?: $jenis->kepanjangan ?: strtoupper($jenis->kode),
+                ];
+            }
+
+            return [
+                'kode' => $requestedJenisFile,
+                'display' => strtoupper($requestedJenisFile),
+            ];
+        }
+
+        $allJenis = MasterJenisFile::all(['kode', 'singkatan', 'kepanjangan']);
+        foreach ($allJenis as $jenis) {
+            $terms = array_filter([
+                Str::lower((string) $jenis->kode),
+                Str::lower((string) $jenis->singkatan),
+                Str::lower((string) $jenis->kepanjangan),
+            ]);
+
+            foreach ($terms as $term) {
+                if ($term !== '' && preg_match('/\b' . preg_quote($term, '/') . '\b/', $question)) {
+                    return [
+                        'kode' => $jenis->kode,
+                        'display' => $jenis->singkatan ?: $jenis->kepanjangan ?: strtoupper($jenis->kode),
+                    ];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function respondWithCatalogSuggestion($user, $sessionId, string $selectedModel, string $question, array $catalogIntent)
+    {
+        $session = $this->resolveSession($user->id, $sessionId, $question, $selectedModel);
+        $docs = $this->getIndexedDocsForUser($user, $catalogIntent['jenis_file'] ?? null);
+        $jenisLabel = $catalogIntent['jenis_label'] ?? null;
+
+        if ($docs->isEmpty()) {
+            $answer = $jenisLabel
+                ? "Saat ini saya belum menemukan dokumen {$jenisLabel} yang sudah tersedia dan ter-index di sistem."
+                : 'Saat ini saya belum menemukan dokumen yang sudah tersedia dan ter-index di sistem.';
+
+            $followUpQuestions = [
+                'Dokumen apa saja yang sudah ter-index saat ini?',
+                'Bisakah tampilkan jenis dokumen lain yang tersedia?',
+                'Dokumen mana yang perlu saya pilih untuk diringkas?',
+            ];
+        } else {
+            $label = $jenisLabel ? "dokumen {$jenisLabel}" : 'dokumen';
+            $answerLines = [
+                "Saat ini {$label} yang tersedia di sistem adalah:",
+                '',
+            ];
+
+            foreach ($docs->take(12) as $index => $doc) {
+                $jenisText = strtoupper((string) ($doc->jenis_file_kode ?? ''));
+                $title = trim((string) ($doc->judul ?? 'Tanpa judul'));
+                $number = trim((string) ($doc->nomor ?? '-'));
+                $answerLines[] = ($index + 1) . '. [' . $jenisText . '] ' . $number . ' - ' . $title;
+            }
+
+            if ($docs->count() > 12) {
+                $remaining = $docs->count() - 12;
+                $answerLines[] = '';
+                $answerLines[] = "Masih ada {$remaining} dokumen lain yang relevan.";
+            }
+
+            $answerLines[] = '';
+            $answerLines[] = 'Jika Anda mau, sebutkan nomor atau judul dokumen yang ingin saya ringkas atau jelaskan lebih lanjut.';
+            $answer = implode("\n", $answerLines);
+
+            $firstDoc = $docs->first();
+            $followUpQuestions = array_values(array_filter([
+                $firstDoc ? 'Ringkas dokumen ' . trim((string) $firstDoc->nomor) : null,
+                $jenisLabel ? "Apa isi utama dokumen {$jenisLabel} yang paling terbaru?" : 'Dokumen mana yang paling terbaru?',
+                'Tampilkan dokumen lain yang serupa atau terkait.',
+            ]));
+        }
+
+        DB::transaction(function () use ($session, $user, $question, $answer, $selectedModel, $followUpQuestions) {
+            AiChatMessage::create([
+                'session_id' => $session->id,
+                'user_id' => $user->id,
+                'role' => 'user',
+                'message' => $question,
+                'model' => $selectedModel,
+                'prompt_tokens' => 0,
+                'completion_tokens' => 0,
+                'total_tokens' => 0,
+            ]);
+
+            AiChatMessage::create([
+                'session_id' => $session->id,
+                'user_id' => $user->id,
+                'role' => 'assistant',
+                'message' => $answer,
+                'model' => $selectedModel,
+                'prompt_tokens' => 0,
+                'completion_tokens' => 0,
+                'total_tokens' => 0,
+                'meta' => [
+                    'sources' => [],
+                    'follow_up_questions' => $followUpQuestions,
+                ],
+            ]);
+
+            $session->update([
+                'model' => $selectedModel,
+                'last_message_at' => now(),
+                'title' => $session->title ?: Str::limit($question, 80),
+            ]);
+        });
+
+        return response()->json([
+            'error' => false,
+            'answer' => $answer,
+            'sources' => [],
+            'usage' => [
+                'prompt_tokens' => 0,
+                'completion_tokens' => 0,
+                'total_tokens' => 0,
+            ],
+            'session_id' => $session->id,
+            'token_balance' => (int) ($user->ai_token_balance ?? 0),
+            'model' => $selectedModel,
+            'follow_up_questions' => $followUpQuestions,
+        ]);
+    }
+
+    private function getIndexedDocsForUser($user, ?string $jenisFile = null)
+    {
+        $docIds = $this->ragService->getIndexedDocIds();
+        if (empty($docIds)) {
+            return collect();
+        }
+
+        $query = Dokumen::with('dJenisFile:id,kode,singkatan,kepanjangan')
+            ->whereIn('id', $docIds)
+            ->select('id', 'nomor', 'judul', 'jenis_file_kode', 'created_at');
+
+        $allowedJenis = array_values(array_filter(array_map('trim', explode(',', (string) ($user->jenis_file ?? '')))));
+        if (!empty($allowedJenis)) {
+            $query->whereIn('jenis_file_kode', $allowedJenis);
+        }
+
+        if ($jenisFile) {
+            $query->where('jenis_file_kode', $jenisFile);
+        }
+
+        return $query
+            ->orderBy('jenis_file_kode')
+            ->orderByDesc('created_at')
+            ->orderBy('nomor')
+            ->get();
     }
 
     private function resolveSession(int $userId, $sessionId, string $question, string $model): AiChatSession

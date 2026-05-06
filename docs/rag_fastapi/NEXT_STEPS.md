@@ -43,6 +43,7 @@
 - Confirm blok `Sumber Dokumen` tidak tampil saat jawaban menyatakan informasi tidak ditemukan
 - Confirm seluruh label assistant tampil sebagai `N4R4 AI Assistance`
 - Confirm bubble user tidak menampilkan payload internal `[Konteks percakapan sebelumnya]`.
+- Confirm pertanyaan katalog seperti `dokumen SOP apa saja` menampilkan daftar dokumen, bukan ringkasan satu dokumen.
 
 8. Floating widget smoke test (all roles)
 - Buka halaman dashboard/dokumen pada role admin, user, operator, dan tamu.
@@ -55,6 +56,7 @@
 - Verifikasi fungsi dropdown riwayat chat + tombol `Chat Baru` di widget berjalan stabil.
 - Verifikasi default state widget selalu `percakapan baru` setelah refresh halaman.
 - Verifikasi riwayat user di widget tidak menampilkan payload internal `[Konteks percakapan sebelumnya]`.
+- Verifikasi pertanyaan katalog umum di widget juga mengikuti mode daftar dokumen.
 
 9. End-to-end chat persistence test
 - Send 2-3 queries
