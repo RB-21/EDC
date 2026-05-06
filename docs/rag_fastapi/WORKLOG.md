@@ -762,6 +762,39 @@ Risks:
 
 ---
 
+## 2026-05-06 09:10-09:25 (Asia/Jakarta)
+Scope:
+- Memperbaiki bug tampilan bubble user yang menampilkan payload konteks internal (`[Konteks percakapan sebelumnya] ...`).
+
+Root cause:
+- Frontend mengirim pertanyaan yang sudah diperkaya konteks sebagai field `question`.
+- Backend menyimpan field `question` tersebut ke tabel chat messages sebagai pesan user.
+- Saat session dibuka ulang, UI merender payload konteks internal seolah-olah itu input asli user.
+
+Perbaikan:
+- Backend:
+  - Tambah field request opsional `question_context`.
+  - `question` tetap dianggap sebagai pertanyaan asli user (untuk penyimpanan session/history).
+  - `question_context` dipakai hanya untuk query ke RAG (jika ada).
+- Frontend chat admin:
+  - Kirim `question` (raw user input) + `question_context` (hasil `buildContextualQuestion`).
+  - Tambah normalizer `extractDisplayedUserQuestion()` untuk membersihkan data history lama yang sudah terlanjur tersimpan dalam format konteks.
+- Widget:
+  - Tambah normalizer yang sama agar riwayat user di widget juga bersih.
+
+Files:
+- `app/Http/Controllers/Admin/RagController.php`
+- `resources/views/admin/rag/chat.blade.php`
+- `resources/views/partials/n4ra-assistance-widget.blade.php`
+
+Verification:
+- `php -l app/Http/Controllers/Admin/RagController.php` lulus.
+
+Risks:
+- Record lama di DB tetap menyimpan payload lama; perbaikan saat ini membersihkan saat render, bukan migrasi data historis.
+
+---
+
 ## 2026-05-05 16:25-16:30 (Asia/Jakarta)
 Scope:
 - Perbaikan fatal error website "Class 'view' does not exist".

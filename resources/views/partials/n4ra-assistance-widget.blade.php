@@ -404,6 +404,17 @@
         .replace(/'/g, '&#039;');
     }
 
+    function extractDisplayedUserQuestion(text) {
+      const raw = String(text || '');
+      const marker = '[Pertanyaan saat ini]';
+      const markerIndex = raw.indexOf(marker);
+      if (markerIndex === -1) {
+        return raw;
+      }
+      const extracted = raw.substring(markerIndex + marker.length).trim();
+      return extracted || raw;
+    }
+
     function setTokenBalance(value) {
       const tokenValue = Number.isFinite(Number(value)) ? Number(value) : 0;
       tokenEl.textContent = tokenValue.toLocaleString('id-ID');
@@ -666,7 +677,7 @@
         messages.forEach(function(item) {
           const role = item.role === 'user' ? 'user' : 'ai';
           if (role === 'user') {
-            appendMessage(role, item.content || '');
+            appendMessage(role, extractDisplayedUserQuestion(item.content || ''));
           } else {
             const answerText = item.content || '';
             appendMessage('ai',

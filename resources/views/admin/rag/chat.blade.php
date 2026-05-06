@@ -599,6 +599,17 @@
                 return context;
             }
 
+            function extractDisplayedUserQuestion(text) {
+                const raw = String(text || '');
+                const marker = '[Pertanyaan saat ini]';
+                const markerIndex = raw.indexOf(marker);
+                if (markerIndex === -1) {
+                    return raw;
+                }
+                const extracted = raw.substring(markerIndex + marker.length).trim();
+                return extracted || raw;
+            }
+
             function resetWelcomeMessage() {
                 chatContainer.html(
                     '<div class="chat-message ai">' +
@@ -878,7 +889,7 @@
                 pendingQuestion = null;
                 messages.forEach(function (item) {
                     if (item.role === 'user') {
-                        pendingQuestion = item.content;
+                        pendingQuestion = extractDisplayedUserQuestion(item.content);
                     } else if (item.role === 'ai' && pendingQuestion) {
                         chatHistory.push({ question: pendingQuestion, answer: item.content || '' });
                         pendingQuestion = null;
@@ -932,7 +943,7 @@
                     const messages = resp.messages || [];
                     messages.forEach(function (m) {
                         if (m.role === 'user') {
-                            appendMessage('user', $('<div/>').text(m.content).html());
+                            appendMessage('user', $('<div/>').text(extractDisplayedUserQuestion(m.content)).html());
                         } else {
                             const answerText = m.content || '';
                             appendMessage('ai',
@@ -971,7 +982,8 @@
 
                 const requestData = {
                     _token: csrfToken,
-                    question: buildContextualQuestion(question),
+                    question: question,
+                    question_context: buildContextualQuestion(question),
                     model: $('#modelSelect').val()
                 };
 

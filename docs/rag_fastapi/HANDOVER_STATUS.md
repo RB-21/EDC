@@ -183,6 +183,12 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Fix: Updated `APP_URL` to HTTPS, enabled `TrustProxies`, forced HTTPS scheme in `AppServiceProvider`, and removed `integrity` from `moment.js`.
 - Files: `.env`, `TrustProxies.php`, `AppServiceProvider.php`, multiple Blade views.
 
+32. User input payload normalization fix
+- Pemisahan field request:
+  - `question`: input asli user (disimpan ke history).
+  - `question_context`: prompt teraugmentasi konteks untuk query RAG.
+- UI chat admin + widget kini menormalkan record lama agar bagian konteks internal tidak tampil sebagai bubble user.
+
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.
 2. Kuota/model availability tetap bergantung pada project Vertex AI dan auth ADC/service account yang aktif.

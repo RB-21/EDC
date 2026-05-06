@@ -239,6 +239,7 @@ class RagController extends Controller
     {
         $request->validate([
             'question' => 'required|string|min:3',
+            'question_context' => 'nullable|string|max:60000',
             'model' => 'nullable|string|max:120',
             'session_id' => 'nullable|integer',
         ]);
@@ -265,13 +266,16 @@ class RagController extends Controller
         }
 
         try {
-            $question = $request->input('question');
+            $question = (string) $request->input('question');
+            $questionContext = trim((string) $request->input('question_context', ''));
+            $questionForRag = $questionContext !== '' ? $questionContext : $question;
+
             $session = $this->resolveSession($user->id, $request->input('session_id'), $question, $selectedModel);
             $promptTemplate = $this->getRagPromptTemplate();
             $promptRules = $this->getRagPromptRules();
 
             $result = $this->ragService->query(
-                $question,
+                $questionForRag,
                 $request->input('jenis_file'),
                 $request->input('bagian'),
                 $request->input('doc_id') ? (int) $request->input('doc_id') : null,
