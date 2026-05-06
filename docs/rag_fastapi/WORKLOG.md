@@ -8,6 +8,7 @@ Scope:
   - konfigurasi pattern intent routing yang bisa diubah dari dashboard EDC
 - Menyiapkan rollout SQL manual saja, tanpa migration Laravel baru.
 - Menambahkan renderer markdown table di chat utama dan widget agar output tabel dari model tidak tampil sebagai plain text pipe markdown.
+- Menstabilkan format jawaban dengan mengurangi `question_context` di frontend: riwayat yang dikirim kini hanya daftar pertanyaan user sebelumnya, bukan potongan jawaban AI sebelumnya.
 
 Files:
 - `app/Http/Controllers/Admin/RagController.php`
@@ -29,6 +30,7 @@ Risks:
 - Perlu jalankan SQL manual baru agar `ai_chat_sessions.meta` tersedia untuk penyimpanan active document context yang persisten.
 - Sebelum SQL dijalankan, sistem masih aman karena ada fallback ke metadata jawaban assistant terakhir, tetapi state session belum sekuat mode full schema.
 - Hotfix setelah implementasi: jalur `catalog suggestion` sempat memicu `Undefined variable $activeDocument` di closure transaksi; sudah diperbaiki dengan capture variabel yang benar dan penyelarasan update session meta.
+- Risiko format jawaban yang drift karena model meniru output sebelumnya dikurangi dengan menghapus potongan jawaban AI lama dari `question_context`.
 
 ---
 

@@ -156,6 +156,11 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 26. Markdown table rendering
 - Frontend chat utama dan widget sekarang mengenali markdown table (`| kolom |`) dari output model.
 - Tabel dirender menjadi HTML table dengan wrapper horizontal scroll agar tetap terbaca di desktop maupun mobile.
+
+27. Context-building stabilization
+- Frontend chat utama tidak lagi mengirim potongan jawaban AI sebelumnya ke `question_context`.
+- Riwayat yang dikirim ke backend kini hanya berisi daftar pertanyaan user sebelumnya + catatan agar model mengikuti format dari system prompt aktif.
+- Tujuan: mengurangi efek model meniru format jawaban sebelumnya yang menyebabkan output kadang berubah dari tabel rapi menjadi list/format lain pada pertanyaan berikutnya.
   - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
 - EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
 - Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.

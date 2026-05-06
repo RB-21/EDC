@@ -618,13 +618,27 @@
             function buildContextualQuestion(currentQuestion) {
                 if (chatHistory.length === 0) return currentQuestion;
 
-                const recentHistory = chatHistory.slice(-MAX_HISTORY);
-                let context = '[Konteks percakapan sebelumnya]\n';
-                recentHistory.forEach(function (h) {
-                    context += 'User: ' + h.question + '\n';
-                    const shortAnswer = h.answer.length > 500 ? h.answer.substring(0, 500) + '...' : h.answer;
-                    context += 'AI: ' + shortAnswer + '\n\n';
+                const recentQuestions = chatHistory
+                    .map(function (item) {
+                        return String(item.question || '').trim();
+                    })
+                    .filter(function (item) {
+                        return item !== '';
+                    })
+                    .slice(-MAX_HISTORY);
+
+                if (recentQuestions.length === 0) return currentQuestion;
+
+                let context = '[Riwayat pertanyaan sebelumnya]\n';
+                recentQuestions.forEach(function (question, index) {
+                    context += (index + 1) + '. ' + question + '\n';
                 });
+
+                context += '\n';
+                context += '[Catatan]\n';
+                context += '- Gunakan riwayat pertanyaan hanya untuk memahami konteks topik.\n';
+                context += '- JANGAN meniru format jawaban sebelumnya.\n';
+                context += '- Ikuti format jawaban dari instruksi sistem/prompt yang aktif.\n\n';
                 context += '[Pertanyaan saat ini]\n' + currentQuestion;
                 return context;
             }

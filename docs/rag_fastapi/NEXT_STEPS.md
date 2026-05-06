@@ -47,6 +47,7 @@
 - Confirm follow-up konten seperti `Apa saja produk komoditi...` setelah membahas satu dokumen tidak salah masuk ke mode katalog.
 - Confirm follow-up seperti `Apa saja tanggal cuti bersama di tahun 2026 berdasarkan dokumen ini?` memakai dokumen aktif session, bukan daftar dokumen tersedia.
 - Confirm output markdown table dari model dirender sebagai tabel HTML, bukan plain text `| ... |`.
+- Confirm format jawaban tetap konsisten antar-turn untuk pertanyaan berulang pada topik yang sama, terutama daftar tanggal/libur yang diharapkan berbentuk tabel.
 
 8. Jalankan SQL manual untuk intent routing
 - Jalankan:
