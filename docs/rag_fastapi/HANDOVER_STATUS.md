@@ -143,6 +143,15 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Deteksi mode daftar dokumen tidak lagi aktif hanya karena frasa umum seperti `apa saja`.
 - Intent katalog sekarang butuh sinyal yang lebih spesifik ke daftar dokumen, misalnya `dokumen apa saja`, `daftar dokumen`, `dokumen SOP`, atau kombinasi jenis dokumen + sinyal list/ketersediaan.
 - Dampak: follow-up isi dokumen seperti `Apa saja produk komoditi yang dimaksud dalam sistem In-tank ini?` tetap masuk ke alur RAG normal, bukan dibelokkan ke daftar dokumen.
+
+25. Intent routing architecture hardening
+- Backend sekarang membangun context routing sebelum memutuskan mode `catalog` vs `RAG`.
+- Jika session memiliki dokumen aktif dan user memakai pola seperti `dokumen ini`, `surat ini`, atau `berdasarkan dokumen ini`, query akan di-anchor ke dokumen aktif tersebut.
+- Konteks dokumen aktif disimpan pada `ai_chat_sessions.meta` bila kolom sudah tersedia.
+- Jika kolom `meta` pada session belum ada, backend fallback ke metadata assistant message terakhir agar perilaku tetap kompatibel.
+- Pola `catalog intent` dan `active document reference` sekarang bisa diatur melalui menu `AI Prompt Settings`.
+- Rollout skema dilakukan lewat SQL manual:
+  - `docs/rag_fastapi/sql/2026_05_06_ai_intent_routing_and_session_meta.sql`
   - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
 - EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
 - Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.

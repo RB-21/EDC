@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS ai_chat_sessions (
     user_id BIGINT UNSIGNED NOT NULL,
     title VARCHAR(255) NULL,
     model VARCHAR(120) NULL,
+    meta JSON NULL,
     last_message_at TIMESTAMP NULL,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL,
@@ -53,6 +54,21 @@ CREATE TABLE IF NOT EXISTS ai_chat_sessions (
     KEY idx_ai_chat_sessions_user_last (user_id, last_message_at),
     KEY idx_ai_chat_sessions_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @sql = (
+    SELECT IF(
+        EXISTS(
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'ai_chat_sessions'
+              AND COLUMN_NAME = 'meta'
+        ),
+        'SELECT 1',
+        'ALTER TABLE ai_chat_sessions ADD COLUMN meta JSON NULL AFTER model'
+    )
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- =========================================================
 -- 3) AI CHAT MESSAGES

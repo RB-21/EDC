@@ -1,5 +1,34 @@
 # Worklog
 
+## 2026-05-06 11:05-11:45 (Asia/Jakarta)
+Scope:
+- Menerapkan arsitektur intent routing yang lebih rapi untuk chat RAG:
+  - active document context per session
+  - bypass katalog saat user merujuk ke `dokumen ini` / `surat ini`
+  - konfigurasi pattern intent routing yang bisa diubah dari dashboard EDC
+- Menyiapkan rollout SQL manual saja, tanpa migration Laravel baru.
+
+Files:
+- `app/Http/Controllers/Admin/RagController.php`
+- `app/Models/AiChatSession.php`
+- `resources/views/admin/rag/settings.blade.php`
+- `docs/rag_fastapi/sql/2026_05_04_ai_chat_schema.sql`
+- `docs/rag_fastapi/sql/2026_05_06_ai_intent_routing_and_session_meta.sql`
+- `docs/rag_fastapi/WORKLOG.md`
+- `docs/rag_fastapi/HANDOVER_STATUS.md`
+- `docs/rag_fastapi/NEXT_STEPS.md`
+
+Verification:
+- `php -l app/Http/Controllers/Admin/RagController.php`
+- `php -l app/Models/AiChatSession.php`
+
+Risks:
+- Perlu jalankan SQL manual baru agar `ai_chat_sessions.meta` tersedia untuk penyimpanan active document context yang persisten.
+- Sebelum SQL dijalankan, sistem masih aman karena ada fallback ke metadata jawaban assistant terakhir, tetapi state session belum sekuat mode full schema.
+- Hotfix setelah implementasi: jalur `catalog suggestion` sempat memicu `Undefined variable $activeDocument` di closure transaksi; sudah diperbaiki dengan capture variabel yang benar dan penyelarasan update session meta.
+
+---
+
 ## 2026-05-06 10:05-10:20 (Asia/Jakarta)
 Scope:
 - Memperketat deteksi intent katalog dokumen agar pertanyaan isi dokumen yang memakai frasa umum seperti `apa saja` tidak salah diarahkan ke mode daftar dokumen.

@@ -50,10 +50,14 @@ class RagController extends Controller
     {
         $promptTemplate = $this->getRagPromptTemplate();
         $promptRules = $this->getRagPromptRules();
+        $intentRoutingSettings = $this->getIntentRoutingSettings();
 
         return view('admin.rag.settings', [
             'promptTemplate' => $promptTemplate,
             'promptRules' => $promptRules,
+            'intentActiveDocumentContextEnabled' => $intentRoutingSettings['enable_active_document_context'],
+            'intentCatalogPatterns' => $intentRoutingSettings['catalog_patterns'],
+            'intentActiveDocumentReferencePatterns' => $intentRoutingSettings['active_document_reference_patterns'],
         ]);
     }
 
@@ -72,10 +76,18 @@ class RagController extends Controller
         $request->validate([
             'prompt_template' => 'required|string|min:50|max:60000',
             'prompt_rules' => 'required|string|min:20|max:30000',
+            'intent_catalog_patterns' => 'nullable|string|max:20000',
+            'intent_active_document_reference_patterns' => 'nullable|string|max:12000',
+            'intent_enable_active_document_context' => 'nullable|boolean',
         ]);
 
         $template = (string) $request->input('prompt_template');
         $rules = trim((string) $request->input('prompt_rules'));
+        $intentCatalogPatterns = trim((string) $request->input('intent_catalog_patterns', ''));
+        $intentActiveDocumentReferencePatterns = trim((string) $request->input('intent_active_document_reference_patterns', ''));
+        $intentEnableActiveDocumentContext = $request->has('intent_enable_active_document_context')
+            ? $request->boolean('intent_enable_active_document_context')
+            : false;
 
         // Wajib ada placeholder agar template valid untuk runtime.
         foreach (['{{CONTEXT_BLOCK}}', '{{QUESTION}}'] as $requiredPlaceholder) {
@@ -100,6 +112,30 @@ class RagController extends Controller
             [
                 'value' => $rules,
                 'description' => 'Aturan sistem dan format output untuk RAG generation',
+            ]
+        );
+
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_intent_enable_active_document_context'],
+            [
+                'value' => $intentEnableActiveDocumentContext ? '1' : '0',
+                'description' => 'Aktifkan konteks dokumen aktif untuk follow-up question',
+            ]
+        );
+
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_intent_catalog_patterns'],
+            [
+                'value' => $intentCatalogPatterns,
+                'description' => 'Pattern intent katalog dokumen (regex/frase per baris)',
+            ]
+        );
+
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_intent_active_document_reference_patterns'],
+            [
+                'value' => $intentActiveDocumentReferencePatterns,
+                'description' => 'Pattern referensi ke dokumen aktif (regex/frase per baris)',
             ]
         );
 
@@ -173,6 +209,7 @@ class RagController extends Controller
                 'id' => $session->id,
                 'title' => $session->title,
                 'model' => $session->model,
+                'active_document' => $this->getSessionActiveDocument($session),
             ],
             'messages' => $messages,
             'token_balance' => (int) ($request->user()->ai_token_balance ?? 0),
@@ -212,6 +249,7 @@ class RagController extends Controller
                 'id' => $session->id,
                 'title' => $session->title,
                 'model' => $session->model,
+                'active_document' => null,
             ],
         ]);
     }
@@ -249,6 +287,7 @@ class RagController extends Controller
         $question = trim((string) $request->input('question'));
         $availableModels = $this->getAllowedModelsForUser($user);
         $selectedModel = $request->input('model') ?: (config('services.rag.default_model', 'gemini-2.0-flash'));
+        $requestedDocId = $request->input('doc_id') ? (int) $request->input('doc_id') : null;
 
         if (!in_array($selectedModel, $availableModels, true)) {
             return response()->json([
@@ -258,14 +297,29 @@ class RagController extends Controller
             ], 422);
         }
 
-        $catalogIntent = $this->detectCatalogIntent($question, $request->input('jenis_file'));
+        $intentRoutingSettings = $this->getIntentRoutingSettings();
+        $existingSession = $this->findExistingSession($user->id, $request->input('session_id'));
+        $routingContext = $this->buildIntentRoutingContext(
+            $question,
+            $requestedDocId,
+            $existingSession,
+            $intentRoutingSettings
+        );
+
+        $catalogIntent = $this->detectCatalogIntent(
+            $question,
+            $request->input('jenis_file'),
+            $intentRoutingSettings,
+            $routingContext
+        );
         if ($catalogIntent !== null) {
             return $this->respondWithCatalogSuggestion(
                 $user,
                 $request->input('session_id'),
                 $selectedModel,
                 $question,
-                $catalogIntent
+                $catalogIntent,
+                $routingContext
             );
         }
 
@@ -282,15 +336,16 @@ class RagController extends Controller
             $questionContext = trim((string) $request->input('question_context', ''));
             $questionForRag = $questionContext !== '' ? $questionContext : $question;
 
-            $session = $this->resolveSession($user->id, $request->input('session_id'), $question, $selectedModel);
+            $session = $existingSession ?: $this->resolveSession($user->id, $request->input('session_id'), $question, $selectedModel);
             $promptTemplate = $this->getRagPromptTemplate();
             $promptRules = $this->getRagPromptRules();
+            $effectiveDocId = $routingContext['resolved_doc_id'] ?? $requestedDocId;
 
             $result = $this->ragService->query(
                 $questionForRag,
                 $request->input('jenis_file'),
                 $request->input('bagian'),
-                $request->input('doc_id') ? (int) $request->input('doc_id') : null,
+                $effectiveDocId,
                 $selectedModel,
                 null,
                 $promptTemplate,
@@ -305,6 +360,10 @@ class RagController extends Controller
             $sources = $result['sources'] ?? [];
             $followUpQuestions = array_values(array_filter((array) ($result['follow_up_questions'] ?? [])));
             $usage = $result['usage'] ?? [];
+            $activeDocument = $this->extractActiveDocumentFromSources($sources, $effectiveDocId);
+            if ($activeDocument === null && $effectiveDocId) {
+                $activeDocument = $this->resolveDocumentById($effectiveDocId);
+            }
 
             $promptTokens = (int) ($usage['prompt_tokens'] ?? 0);
             $completionTokens = (int) ($usage['completion_tokens'] ?? 0);
@@ -332,7 +391,9 @@ class RagController extends Controller
                 $promptTokens,
                 $completionTokens,
                 $totalTokens,
-                $newBalance
+                $newBalance,
+                $activeDocument,
+                $routingContext
             ) {
                 AiChatMessage::create([
                     'session_id' => $session->id,
@@ -357,14 +418,29 @@ class RagController extends Controller
                     'meta' => [
                         'sources' => $sources,
                         'follow_up_questions' => $followUpQuestions,
+                        'active_document' => $activeDocument,
+                        'routing' => [
+                            'mode' => 'rag',
+                            'effective_doc_id' => $activeDocument['doc_id'] ?? null,
+                            'used_active_document_context' => (bool) ($routingContext['used_active_document_context'] ?? false),
+                            'matched_active_document_reference' => (bool) ($routingContext['matched_active_document_reference'] ?? false),
+                        ],
                     ],
                 ]);
 
-                $session->update([
+                $sessionAttributes = [
                     'model' => $selectedModel,
                     'last_message_at' => now(),
                     'title' => $session->title ?: Str::limit($question, 80),
-                ]);
+                ];
+
+                if ($this->supportsSessionMeta()) {
+                    $sessionAttributes['meta'] = $this->mergeSessionMeta($session, [
+                        'active_document' => $activeDocument,
+                    ]);
+                }
+
+                $session->update($sessionAttributes);
 
                 $user->update([
                     'ai_token_balance' => $newBalance,
@@ -488,10 +564,24 @@ class RagController extends Controller
         return max(1, $raw);
     }
 
-    private function detectCatalogIntent(string $question, ?string $requestedJenisFile = null): ?array
+    private function detectCatalogIntent(
+        string $question,
+        ?string $requestedJenisFile = null,
+        array $intentRoutingSettings = [],
+        array $routingContext = []
+    ): ?array
     {
         $normalized = Str::lower(trim($question));
         $normalized = preg_replace('/\s+/', ' ', $normalized ?? '') ?? '';
+
+        if (($routingContext['matched_active_document_reference'] ?? false) === true) {
+            return null;
+        }
+
+        if (($routingContext['has_explicit_doc_id'] ?? false) === true) {
+            return null;
+        }
+
         $jenisInfo = $this->inferJenisFileFromQuestion($normalized, $requestedJenisFile);
         $jenisPatterns = [];
         if ($jenisInfo !== null) {
@@ -518,20 +608,10 @@ class RagController extends Controller
         $documentPattern = '/\b(?:' . implode('|', array_unique($documentTerms)) . ')\b/u';
         $listPattern = '/\b(?:apa saja|daftar|list|yang tersedia|yang ada|tersedia|ada)\b/u';
 
-        $generalPatterns = [
-            '/\bdaftar\s+(?:dokumen|arsip|berkas|file)\b/u',
-            '/\b(?:dokumen|arsip|berkas|file)\b.*\b(?:apa saja|yang tersedia|yang ada|tersedia)\b/u',
-            '/\b(?:apa saja|yang tersedia|yang ada|tersedia)\b.*\b(?:dokumen|arsip|berkas|file)\b/u',
-            '/\bada\s+(?:dokumen|arsip|berkas|file)\b/u',
-            '/^(?:dokumen|daftar dokumen)$/u',
-        ];
-
         $isGeneralCatalogQuery = false;
-        foreach ($generalPatterns as $pattern) {
-            if (preg_match($pattern, $normalized)) {
-                $isGeneralCatalogQuery = true;
-                break;
-            }
+
+        if ($this->matchesConfiguredPatterns($normalized, (string) ($intentRoutingSettings['catalog_patterns'] ?? ''))) {
+            $isGeneralCatalogQuery = true;
         }
 
         if (!$isGeneralCatalogQuery && $jenisInfo !== null) {
@@ -602,11 +682,19 @@ class RagController extends Controller
         return null;
     }
 
-    private function respondWithCatalogSuggestion($user, $sessionId, string $selectedModel, string $question, array $catalogIntent)
+    private function respondWithCatalogSuggestion(
+        $user,
+        $sessionId,
+        string $selectedModel,
+        string $question,
+        array $catalogIntent,
+        array $routingContext = []
+    )
     {
         $session = $this->resolveSession($user->id, $sessionId, $question, $selectedModel);
         $docs = $this->getIndexedDocsForUser($user, $catalogIntent['jenis_file'] ?? null);
         $jenisLabel = $catalogIntent['jenis_label'] ?? null;
+        $activeDocument = $this->getSessionActiveDocument($session);
 
         if ($docs->isEmpty()) {
             $answer = $jenisLabel
@@ -650,7 +738,16 @@ class RagController extends Controller
             ]));
         }
 
-        DB::transaction(function () use ($session, $user, $question, $answer, $selectedModel, $followUpQuestions) {
+        DB::transaction(function () use (
+            $session,
+            $user,
+            $question,
+            $answer,
+            $selectedModel,
+            $followUpQuestions,
+            $activeDocument,
+            $routingContext
+        ) {
             AiChatMessage::create([
                 'session_id' => $session->id,
                 'user_id' => $user->id,
@@ -674,14 +771,29 @@ class RagController extends Controller
                 'meta' => [
                     'sources' => [],
                     'follow_up_questions' => $followUpQuestions,
+                    'active_document' => $activeDocument,
+                    'routing' => [
+                        'mode' => 'catalog',
+                        'effective_doc_id' => $activeDocument['doc_id'] ?? null,
+                        'used_active_document_context' => (bool) ($routingContext['used_active_document_context'] ?? false),
+                        'matched_active_document_reference' => (bool) ($routingContext['matched_active_document_reference'] ?? false),
+                    ],
                 ],
             ]);
 
-            $session->update([
+            $sessionAttributes = [
                 'model' => $selectedModel,
                 'last_message_at' => now(),
                 'title' => $session->title ?: Str::limit($question, 80),
-            ]);
+            ];
+
+            if ($this->supportsSessionMeta()) {
+                $sessionAttributes['meta'] = $this->mergeSessionMeta($session, [
+                    'active_document' => $activeDocument,
+                ]);
+            }
+
+            $session->update($sessionAttributes);
         });
 
         return response()->json([
@@ -727,15 +839,22 @@ class RagController extends Controller
             ->get();
     }
 
+    private function findExistingSession(int $userId, $sessionId): ?AiChatSession
+    {
+        if (!$sessionId) {
+            return null;
+        }
+
+        return AiChatSession::where('id', (int) $sessionId)
+            ->where('user_id', $userId)
+            ->first();
+    }
+
     private function resolveSession(int $userId, $sessionId, string $question, string $model): AiChatSession
     {
-        if ($sessionId) {
-            $session = AiChatSession::where('id', (int) $sessionId)
-                ->where('user_id', $userId)
-                ->first();
-            if ($session) {
-                return $session;
-            }
+        $existingSession = $this->findExistingSession($userId, $sessionId);
+        if ($existingSession) {
+            return $existingSession;
         }
 
         return AiChatSession::create([
@@ -768,5 +887,266 @@ class RagController extends Controller
         $fromDb = trim((string) AiSetting::getValue('rag_prompt_rules', $default));
 
         return $fromDb !== '' ? $fromDb : $default;
+    }
+
+    private function getIntentRoutingSettings(): array
+    {
+        return [
+            'enable_active_document_context' => $this->getBooleanAiSetting(
+                'rag_intent_enable_active_document_context',
+                true
+            ),
+            'catalog_patterns' => $this->getTextAiSetting(
+                'rag_intent_catalog_patterns',
+                $this->getDefaultCatalogPatterns()
+            ),
+            'active_document_reference_patterns' => $this->getTextAiSetting(
+                'rag_intent_active_document_reference_patterns',
+                $this->getDefaultActiveDocumentReferencePatterns()
+            ),
+        ];
+    }
+
+    private function getDefaultCatalogPatterns(): string
+    {
+        return implode("\n", [
+            '/\bdaftar\s+(?:dokumen|arsip|berkas|file)\b/u',
+            '/\b(?:dokumen|arsip|berkas|file)\b.*\b(?:apa saja|yang tersedia|yang ada|tersedia)\b/u',
+            '/\b(?:apa saja|yang tersedia|yang ada|tersedia)\b.*\b(?:dokumen|arsip|berkas|file)\b/u',
+            '/\bada\s+(?:dokumen|arsip|berkas|file)\b/u',
+            '/^(?:dokumen|daftar dokumen)$/u',
+        ]);
+    }
+
+    private function getDefaultActiveDocumentReferencePatterns(): string
+    {
+        return implode("\n", [
+            'dokumen ini',
+            'dokumen tersebut',
+            'surat ini',
+            'surat tersebut',
+            'berdasarkan dokumen ini',
+            'berdasarkan dokumen tersebut',
+            'berdasarkan surat ini',
+            'dalam dokumen ini',
+            'di dokumen ini',
+            'pada dokumen ini',
+        ]);
+    }
+
+    private function getTextAiSetting(string $key, string $default = ''): string
+    {
+        $value = trim((string) AiSetting::getValue($key, $default));
+        return $value !== '' ? $value : $default;
+    }
+
+    private function getBooleanAiSetting(string $key, bool $default = false): bool
+    {
+        $value = AiSetting::getValue($key, $default ? '1' : '0');
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return in_array(Str::lower((string) $value), ['1', 'true', 'yes', 'on'], true);
+    }
+
+    private function buildIntentRoutingContext(
+        string $question,
+        ?int $requestedDocId,
+        ?AiChatSession $session,
+        array $intentRoutingSettings
+    ): array {
+        $normalized = Str::lower(trim($question));
+        $normalized = preg_replace('/\s+/', ' ', $normalized ?? '') ?? '';
+        $activeDocument = null;
+
+        if (($intentRoutingSettings['enable_active_document_context'] ?? true) && $session) {
+            $activeDocument = $this->getSessionActiveDocument($session);
+        }
+
+        $matchedActiveDocumentReference = $activeDocument !== null
+            && $this->matchesConfiguredPatterns(
+                $normalized,
+                (string) ($intentRoutingSettings['active_document_reference_patterns'] ?? '')
+            );
+
+        $resolvedDocId = $requestedDocId;
+        $usedActiveDocumentContext = false;
+
+        if (!$resolvedDocId && $matchedActiveDocumentReference && !empty($activeDocument['doc_id'])) {
+            $resolvedDocId = (int) $activeDocument['doc_id'];
+            $usedActiveDocumentContext = true;
+        }
+
+        return [
+            'has_explicit_doc_id' => $requestedDocId !== null,
+            'requested_doc_id' => $requestedDocId,
+            'resolved_doc_id' => $resolvedDocId,
+            'active_document' => $activeDocument,
+            'matched_active_document_reference' => $matchedActiveDocumentReference,
+            'used_active_document_context' => $usedActiveDocumentContext,
+        ];
+    }
+
+    private function getSessionActiveDocument(?AiChatSession $session): ?array
+    {
+        if (!$session) {
+            return null;
+        }
+
+        if ($this->supportsSessionMeta()) {
+            $meta = is_array($session->meta ?? null) ? $session->meta : [];
+            $fromSessionMeta = $this->normalizeActiveDocument($meta['active_document'] ?? null);
+            if ($fromSessionMeta !== null) {
+                return $fromSessionMeta;
+            }
+        }
+
+        $lastAssistantMessage = AiChatMessage::where('session_id', $session->id)
+            ->where('role', 'assistant')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$lastAssistantMessage) {
+            return null;
+        }
+
+        $meta = is_array($lastAssistantMessage->meta ?? null) ? $lastAssistantMessage->meta : [];
+        $fromMessageMeta = $this->normalizeActiveDocument($meta['active_document'] ?? null);
+        if ($fromMessageMeta !== null) {
+            return $fromMessageMeta;
+        }
+
+        return $this->extractActiveDocumentFromSources((array) ($meta['sources'] ?? []));
+    }
+
+    private function normalizeActiveDocument($document): ?array
+    {
+        if (!is_array($document)) {
+            return null;
+        }
+
+        $docId = isset($document['doc_id']) && $document['doc_id'] !== ''
+            ? (int) $document['doc_id']
+            : null;
+        $nomor = trim((string) ($document['nomor'] ?? ''));
+        $judul = trim((string) ($document['judul'] ?? ''));
+        $jenisFileKode = trim((string) ($document['jenis_file_kode'] ?? ''));
+
+        if ($docId === null && $nomor === '' && $judul === '') {
+            return null;
+        }
+
+        return [
+            'doc_id' => $docId,
+            'nomor' => $nomor !== '' ? $nomor : null,
+            'judul' => $judul !== '' ? $judul : null,
+            'jenis_file_kode' => $jenisFileKode !== '' ? $jenisFileKode : null,
+        ];
+    }
+
+    private function extractActiveDocumentFromSources(array $sources, ?int $preferredDocId = null): ?array
+    {
+        if (empty($sources)) {
+            return null;
+        }
+
+        $selectedSource = null;
+        if ($preferredDocId !== null) {
+            foreach ($sources as $source) {
+                if ((int) ($source['doc_id'] ?? 0) === $preferredDocId) {
+                    $selectedSource = $source;
+                    break;
+                }
+            }
+        }
+
+        if ($selectedSource === null) {
+            foreach ($sources as $source) {
+                if (!empty($source['doc_id']) || !empty($source['nomor']) || !empty($source['judul'])) {
+                    $selectedSource = $source;
+                    break;
+                }
+            }
+        }
+
+        return $this->normalizeActiveDocument($selectedSource);
+    }
+
+    private function resolveDocumentById(int $docId): ?array
+    {
+        $document = Dokumen::query()
+            ->select('id', 'nomor', 'judul', 'jenis_file_kode')
+            ->find($docId);
+
+        if (!$document) {
+            return null;
+        }
+
+        return $this->normalizeActiveDocument([
+            'doc_id' => $document->id,
+            'nomor' => $document->nomor,
+            'judul' => $document->judul,
+            'jenis_file_kode' => $document->jenis_file_kode,
+        ]);
+    }
+
+    private function matchesConfiguredPatterns(string $subject, string $patternsText): bool
+    {
+        $lines = preg_split('/\r\n|\r|\n/', $patternsText) ?: [];
+        foreach ($lines as $line) {
+            $line = trim((string) $line);
+            if ($line === '' || Str::startsWith($line, '#')) {
+                continue;
+            }
+
+            if ($this->lineMatchesSubject($subject, $line)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function lineMatchesSubject(string $subject, string $line): bool
+    {
+        $pattern = $line;
+        if (Str::startsWith($pattern, 'regex:')) {
+            $pattern = trim((string) Str::after($pattern, 'regex:'));
+        }
+
+        if (Str::startsWith($pattern, '/')) {
+            $matchResult = @preg_match($pattern, $subject);
+            return $matchResult === 1;
+        }
+
+        return Str::contains($subject, Str::lower($pattern));
+    }
+
+    private function supportsSessionMeta(): bool
+    {
+        static $supportsSessionMeta = null;
+
+        if ($supportsSessionMeta === null) {
+            $supportsSessionMeta = Schema::hasColumn('ai_chat_sessions', 'meta');
+        }
+
+        return $supportsSessionMeta;
+    }
+
+    private function mergeSessionMeta(AiChatSession $session, array $overrides = []): array
+    {
+        $existing = is_array($session->meta ?? null) ? $session->meta : [];
+
+        foreach ($overrides as $key => $value) {
+            if ($value === null) {
+                unset($existing[$key]);
+                continue;
+            }
+
+            $existing[$key] = $value;
+        }
+
+        return $existing;
     }
 }

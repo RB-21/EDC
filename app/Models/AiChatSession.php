@@ -15,6 +15,7 @@ class AiChatSession extends Model
 
     protected $casts = [
         'last_message_at' => 'datetime',
+        'meta' => 'array',
     ];
 
     public function user()
@@ -32,4 +33,3 @@ class AiChatSession extends Model
         return $this->hasOne(AiChatMessage::class, 'session_id', 'id')->latestOfMany();
     }
 }
-

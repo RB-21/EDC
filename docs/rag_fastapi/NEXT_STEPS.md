@@ -45,8 +45,15 @@
 - Confirm bubble user tidak menampilkan payload internal `[Konteks percakapan sebelumnya]`.
 - Confirm pertanyaan katalog seperti `dokumen SOP apa saja` menampilkan daftar dokumen, bukan ringkasan satu dokumen.
 - Confirm follow-up konten seperti `Apa saja produk komoditi...` setelah membahas satu dokumen tidak salah masuk ke mode katalog.
+- Confirm follow-up seperti `Apa saja tanggal cuti bersama di tahun 2026 berdasarkan dokumen ini?` memakai dokumen aktif session, bukan daftar dokumen tersedia.
 
-8. Floating widget smoke test (all roles)
+8. Jalankan SQL manual untuk intent routing
+- Jalankan:
+  - `docs/rag_fastapi/sql/2026_05_06_ai_intent_routing_and_session_meta.sql`
+- Verifikasi kolom `ai_chat_sessions.meta` sudah ada.
+- Verifikasi key `rag_intent_enable_active_document_context`, `rag_intent_catalog_patterns`, dan `rag_intent_active_document_reference_patterns` sudah ter-seed di `ai_settings`.
+
+9. Floating widget smoke test (all roles)
 - Buka halaman dashboard/dokumen pada role admin, user, operator, dan tamu.
 - Pastikan tombol floating `N4R4 AI Assistance` selalu tampil.
 - Kirim minimal 1 pertanyaan per role dan pastikan ada jawaban.
@@ -59,13 +66,13 @@
 - Verifikasi riwayat user di widget tidak menampilkan payload internal `[Konteks percakapan sebelumnya]`.
 - Verifikasi pertanyaan katalog umum di widget juga mengikuti mode daftar dokumen.
 
-9. End-to-end chat persistence test
+10. End-to-end chat persistence test
 - Send 2-3 queries
 - Reload page
 - Re-open session from dropdown
 - Validate message history reloaded correctly
 
-10. Token accounting validation
+11. Token accounting validation
 - Capture token before query
 - Send query
 - Validate `ai_token_balance` decrement equals `usage.total_tokens`
