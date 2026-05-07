@@ -303,7 +303,8 @@ class RagController extends Controller
             $question,
             $requestedDocId,
             $existingSession,
-            $intentRoutingSettings
+            $intentRoutingSettings,
+            $user
         );
 
         $catalogIntent = $this->detectCatalogIntent(
@@ -360,10 +361,11 @@ class RagController extends Controller
             $sources = $result['sources'] ?? [];
             $followUpQuestions = array_values(array_filter((array) ($result['follow_up_questions'] ?? [])));
             $usage = $result['usage'] ?? [];
-            $activeDocument = $this->extractActiveDocumentFromSources($sources, $effectiveDocId);
-            if ($activeDocument === null && $effectiveDocId) {
-                $activeDocument = $this->resolveDocumentById($effectiveDocId);
-            }
+            $activeDocument = $this->determineTrustedActiveDocument(
+                $sources,
+                $routingContext,
+                $effectiveDocId
+            );
 
             $promptTokens = (int) ($usage['prompt_tokens'] ?? 0);
             $completionTokens = (int) ($usage['completion_tokens'] ?? 0);
@@ -424,6 +426,7 @@ class RagController extends Controller
                             'effective_doc_id' => $activeDocument['doc_id'] ?? null,
                             'used_active_document_context' => (bool) ($routingContext['used_active_document_context'] ?? false),
                             'matched_active_document_reference' => (bool) ($routingContext['matched_active_document_reference'] ?? false),
+                            'matched_explicit_document_reference' => (bool) ($routingContext['matched_explicit_document_reference'] ?? false),
                         ],
                     ],
                 ]);
@@ -579,6 +582,10 @@ class RagController extends Controller
         }
 
         if (($routingContext['has_explicit_doc_id'] ?? false) === true) {
+            return null;
+        }
+
+        if (($routingContext['matched_explicit_document_reference'] ?? false) === true) {
             return null;
         }
 
@@ -772,14 +779,15 @@ class RagController extends Controller
                     'sources' => [],
                     'follow_up_questions' => $followUpQuestions,
                     'active_document' => $activeDocument,
-                    'routing' => [
-                        'mode' => 'catalog',
-                        'effective_doc_id' => $activeDocument['doc_id'] ?? null,
-                        'used_active_document_context' => (bool) ($routingContext['used_active_document_context'] ?? false),
-                        'matched_active_document_reference' => (bool) ($routingContext['matched_active_document_reference'] ?? false),
+                        'routing' => [
+                            'mode' => 'catalog',
+                            'effective_doc_id' => $activeDocument['doc_id'] ?? null,
+                            'used_active_document_context' => (bool) ($routingContext['used_active_document_context'] ?? false),
+                            'matched_active_document_reference' => (bool) ($routingContext['matched_active_document_reference'] ?? false),
+                            'matched_explicit_document_reference' => (bool) ($routingContext['matched_explicit_document_reference'] ?? false),
+                        ],
                     ],
-                ],
-            ]);
+                ]);
 
             $sessionAttributes = [
                 'model' => $selectedModel,
@@ -823,7 +831,8 @@ class RagController extends Controller
             ->whereIn('id', $docIds)
             ->select('id', 'nomor', 'judul', 'jenis_file_kode', 'created_at');
 
-        $allowedJenis = array_values(array_filter(array_map('trim', explode(',', (string) ($user->jenis_file ?? '')))));
+        $userJenisFile = $user ? (string) ($user->jenis_file ?? '') : '';
+        $allowedJenis = array_values(array_filter(array_map('trim', explode(',', $userJenisFile))));
         if (!empty($allowedJenis)) {
             $query->whereIn('jenis_file_kode', $allowedJenis);
         }
@@ -954,11 +963,13 @@ class RagController extends Controller
         string $question,
         ?int $requestedDocId,
         ?AiChatSession $session,
-        array $intentRoutingSettings
+        array $intentRoutingSettings,
+        $user = null
     ): array {
         $normalized = Str::lower(trim($question));
         $normalized = preg_replace('/\s+/', ' ', $normalized ?? '') ?? '';
         $activeDocument = null;
+        $explicitDocument = $this->resolveExplicitDocumentReference($question, $user);
 
         if (($intentRoutingSettings['enable_active_document_context'] ?? true) && $session) {
             $activeDocument = $this->getSessionActiveDocument($session);
@@ -972,6 +983,11 @@ class RagController extends Controller
 
         $resolvedDocId = $requestedDocId;
         $usedActiveDocumentContext = false;
+        $matchedExplicitDocumentReference = $explicitDocument !== null;
+
+        if (!$resolvedDocId && $explicitDocument !== null && !empty($explicitDocument['doc_id'])) {
+            $resolvedDocId = (int) $explicitDocument['doc_id'];
+        }
 
         if (!$resolvedDocId && $matchedActiveDocumentReference && !empty($activeDocument['doc_id'])) {
             $resolvedDocId = (int) $activeDocument['doc_id'];
@@ -979,13 +995,73 @@ class RagController extends Controller
         }
 
         return [
-            'has_explicit_doc_id' => $requestedDocId !== null,
+            'has_explicit_doc_id' => $requestedDocId !== null || $matchedExplicitDocumentReference,
             'requested_doc_id' => $requestedDocId,
             'resolved_doc_id' => $resolvedDocId,
             'active_document' => $activeDocument,
+            'explicit_document' => $explicitDocument,
+            'matched_explicit_document_reference' => $matchedExplicitDocumentReference,
             'matched_active_document_reference' => $matchedActiveDocumentReference,
             'used_active_document_context' => $usedActiveDocumentContext,
         ];
+    }
+
+    private function resolveExplicitDocumentReference(string $question, $user = null): ?array
+    {
+        $normalizedQuestion = $this->normalizeDocumentReferenceText($question);
+        if ($normalizedQuestion === '') {
+            return null;
+        }
+
+        $docs = $this->getIndexedDocsForUser($user)->values();
+        if ($docs->isEmpty()) {
+            return null;
+        }
+
+        foreach ($docs as $doc) {
+            $normalizedNomor = $this->normalizeDocumentReferenceText((string) ($doc->nomor ?? ''));
+            if ($normalizedNomor !== '' && Str::contains($normalizedQuestion, $normalizedNomor)) {
+                return $this->normalizeActiveDocument([
+                    'doc_id' => $doc->id,
+                    'nomor' => $doc->nomor,
+                    'judul' => $doc->judul,
+                    'jenis_file_kode' => $doc->jenis_file_kode,
+                ]);
+            }
+        }
+
+        $titleMatches = [];
+        $normalizedQuestionPlain = Str::lower(trim($question));
+        foreach ($docs as $doc) {
+            $judul = trim((string) ($doc->judul ?? ''));
+            if (mb_strlen($judul) < 20) {
+                continue;
+            }
+
+            $normalizedTitle = Str::lower($judul);
+            if ($normalizedTitle !== '' && Str::contains($normalizedQuestionPlain, $normalizedTitle)) {
+                $titleMatches[] = $doc;
+            }
+        }
+
+        if (count($titleMatches) === 1) {
+            $doc = $titleMatches[0];
+            return $this->normalizeActiveDocument([
+                'doc_id' => $doc->id,
+                'nomor' => $doc->nomor,
+                'judul' => $doc->judul,
+                'jenis_file_kode' => $doc->jenis_file_kode,
+            ]);
+        }
+
+        return null;
+    }
+
+    private function normalizeDocumentReferenceText(string $text): string
+    {
+        $normalized = Str::upper($text);
+        $normalized = preg_replace('/[^A-Z0-9]+/u', '', $normalized ?? '') ?? '';
+        return trim($normalized);
     }
 
     private function getSessionActiveDocument(?AiChatSession $session): ?array
@@ -996,9 +1072,8 @@ class RagController extends Controller
 
         if ($this->supportsSessionMeta()) {
             $meta = is_array($session->meta ?? null) ? $session->meta : [];
-            $fromSessionMeta = $this->normalizeActiveDocument($meta['active_document'] ?? null);
-            if ($fromSessionMeta !== null) {
-                return $fromSessionMeta;
+            if (array_key_exists('active_document', $meta)) {
+                return $this->normalizeActiveDocument($meta['active_document']);
             }
         }
 
@@ -1089,6 +1164,63 @@ class RagController extends Controller
             'judul' => $document->judul,
             'jenis_file_kode' => $document->jenis_file_kode,
         ]);
+    }
+
+    private function determineTrustedActiveDocument(
+        array $sources,
+        array $routingContext = [],
+        ?int $effectiveDocId = null
+    ): ?array {
+        if (!empty($routingContext['explicit_document'])) {
+            return $this->normalizeActiveDocument($routingContext['explicit_document']);
+        }
+
+        if (($routingContext['used_active_document_context'] ?? false) === true && !empty($routingContext['active_document'])) {
+            return $this->normalizeActiveDocument($routingContext['active_document']);
+        }
+
+        if ($effectiveDocId) {
+            $resolved = $this->resolveDocumentById($effectiveDocId);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        if (empty($sources)) {
+            return null;
+        }
+
+        $docScores = [];
+        $docSourceMap = [];
+        foreach ($sources as $source) {
+            $docId = (int) ($source['doc_id'] ?? 0);
+            if ($docId <= 0) {
+                continue;
+            }
+
+            $score = (float) ($source['score'] ?? 0.0);
+            if (!isset($docScores[$docId]) || $score > $docScores[$docId]) {
+                $docScores[$docId] = $score;
+                $docSourceMap[$docId] = $source;
+            }
+        }
+
+        if (empty($docScores)) {
+            return $this->extractActiveDocumentFromSources($sources, $effectiveDocId);
+        }
+
+        arsort($docScores);
+        $docIds = array_keys($docScores);
+        $topDocId = (int) $docIds[0];
+        $topScore = (float) $docScores[$topDocId];
+        $secondScore = isset($docIds[1]) ? (float) $docScores[$docIds[1]] : null;
+        $gap = $secondScore !== null ? ($topScore - $secondScore) : $topScore;
+
+        if ($secondScore !== null && $gap < 0.03) {
+            return null;
+        }
+
+        return $this->normalizeActiveDocument($docSourceMap[$topDocId] ?? null);
     }
 
     private function matchesConfiguredPatterns(string $subject, string $patternsText): bool

@@ -695,14 +695,51 @@
 
                 const lines = html.split('\n');
                 let result = [];
-                let inList = false;
-                let listType = null;
-                
-                function closeListIfOpen() {
-                    if (inList) {
-                        result.push('</' + listType + '>');
-                        inList = false;
-                        listType = null;
+                let listStack = [];
+
+                function openList(type, indent) {
+                    result.push('<' + type + '>');
+                    listStack.push({
+                        type: type,
+                        indent: indent,
+                        liOpen: false
+                    });
+                }
+
+                function closeTopListItem() {
+                    if (!listStack.length) {
+                        return;
+                    }
+
+                    const top = listStack[listStack.length - 1];
+                    if (top.liOpen) {
+                        result.push('</li>');
+                        top.liOpen = false;
+                    }
+                }
+
+                function openListItem(content) {
+                    if (!listStack.length) {
+                        return;
+                    }
+
+                    result.push('<li>' + content);
+                    listStack[listStack.length - 1].liOpen = true;
+                }
+
+                function closeListsToIndent(indent) {
+                    while (listStack.length && indent < listStack[listStack.length - 1].indent) {
+                        closeTopListItem();
+                        const closed = listStack.pop();
+                        result.push('</' + closed.type + '>');
+                    }
+                }
+
+                function closeAllLists() {
+                    while (listStack.length) {
+                        closeTopListItem();
+                        const closed = listStack.pop();
+                        result.push('</' + closed.type + '>');
                     }
                 }
 
@@ -729,7 +766,9 @@
                 }
 
                 for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
+                    const rawLine = lines[i].replace(/\t/g, '    ');
+                    const indent = (rawLine.match(/^\s*/) || [''])[0].length;
+                    const line = rawLine.trim();
                     const ulMatch = line.match(/^[-*]\s+(.+)$/);
                     const olMatch = line.match(/^\d+\.\s+(.+)$/);
 
@@ -738,7 +777,7 @@
                         i + 1 < lines.length &&
                         isMarkdownTableSeparator(lines[i + 1].trim())
                     ) {
-                        closeListIfOpen();
+                        closeAllLists();
                         const headerCells = splitMarkdownTableRow(line);
                         const tableRows = [];
                         i += 2;
@@ -773,23 +812,47 @@
                     }
 
                     if (ulMatch) {
-                        if (!inList || listType !== 'ul') {
-                            closeListIfOpen();
-                            result.push('<ul>');
-                            inList = true;
-                            listType = 'ul';
+                        if (!listStack.length) {
+                            openList('ul', indent);
+                        } else if (indent > listStack[listStack.length - 1].indent) {
+                            openList('ul', indent);
+                        } else {
+                            closeListsToIndent(indent);
+                            const current = listStack[listStack.length - 1] || null;
+                            if (!current || current.indent !== indent) {
+                                openList('ul', indent);
+                            } else if (current.type !== 'ul') {
+                                closeTopListItem();
+                                const closed = listStack.pop();
+                                result.push('</' + closed.type + '>');
+                                openList('ul', indent);
+                            } else {
+                                closeTopListItem();
+                            }
                         }
-                        result.push('<li>' + ulMatch[1] + '</li>');
+                        openListItem(ulMatch[1]);
                     } else if (olMatch) {
-                        if (!inList || listType !== 'ol') {
-                            closeListIfOpen();
-                            result.push('<ol>');
-                            inList = true;
-                            listType = 'ol';
+                        if (!listStack.length) {
+                            openList('ol', indent);
+                        } else if (indent > listStack[listStack.length - 1].indent) {
+                            openList('ol', indent);
+                        } else {
+                            closeListsToIndent(indent);
+                            const current = listStack[listStack.length - 1] || null;
+                            if (!current || current.indent !== indent) {
+                                openList('ol', indent);
+                            } else if (current.type !== 'ol') {
+                                closeTopListItem();
+                                const closed = listStack.pop();
+                                result.push('</' + closed.type + '>');
+                                openList('ol', indent);
+                            } else {
+                                closeTopListItem();
+                            }
                         }
-                        result.push('<li>' + olMatch[1] + '</li>');
+                        openListItem(olMatch[1]);
                     } else {
-                        closeListIfOpen();
+                        closeAllLists();
                         if (line === '') {
                             result.push('<br>');
                         } else if (line.startsWith('<h4>')) {
@@ -799,7 +862,7 @@
                         }
                     }
                 }
-                closeListIfOpen();
+                closeAllLists();
                 return '<div class="answer-text">' + result.join('') + '</div>';
             }
 

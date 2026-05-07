@@ -170,6 +170,17 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
   - `Tanggal`
   - `Jenis Dokumen`
 - Jika `jenis_file_nama` kosong, backend fallback ke `jenis_file_kode` agar model tidak mengisi `Jenis Dokumen` dengan `-` atau menebak dari `filename/pdf`.
+
+29. Explicit document resolver + safer lock
+- Controller Laravel kini mencoba resolve nomor dokumen eksplisit (dan match judul yang unik) sebelum query RAG dijalankan.
+- Jika nomor/judul dokumen eksplisit terdeteksi, query tidak boleh jatuh ke mode katalog.
+- `active_document` session tidak lagi diupdate hanya berdasarkan top source yang selisih skornya sangat tipis terhadap dokumen lain.
+- Jika `session.meta.active_document` sudah diset `null`, fallback ke histori assistant lama dihentikan agar wrong lock yang sudah dilepas tidak aktif kembali.
+- Tujuan: mencegah salah lock dokumen seperti kasus session `41`, di mana query explicit `DPSB/SE/7/II/2026` sempat terkunci ke `CEO1/SE/35/XI/2025`.
+
+30. Nested markdown list rendering
+- Renderer jawaban AI di halaman chat utama dan widget kini menangani nested markdown list (`ol` + `ul`) dengan benar.
+- Tujuan: mencegah numbering `1, 2, 3` restart ke `1` setiap kali ada sub-bullet `* ...` di bawah item bernomor.
   - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
 - EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
 - Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.

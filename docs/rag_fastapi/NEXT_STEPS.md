@@ -49,6 +49,10 @@
 - Confirm output markdown table dari model dirender sebagai tabel HTML, bukan plain text `| ... |`.
 - Confirm format jawaban tetap konsisten antar-turn untuk pertanyaan berulang pada topik yang sama, terutama daftar tanggal/libur yang diharapkan berbentuk tabel.
 - Confirm `Jenis Dokumen` dan `Tanggal` pada blok identitas dokumen konsisten antar query untuk dokumen yang sama.
+- Confirm query explicit nomor dokumen seperti `DPSB/SE/7/II/2026` selalu resolve ke `doc_id` yang benar dan tidak masuk mode katalog.
+- Confirm `dokumen ini` tidak lagi terseret ke dokumen yang salah ketika session sebelumnya punya retrieval multi-dokumen dengan skor berdekatan.
+- Confirm session yang `active_document`-nya sudah dikosongkan tidak fallback lagi ke `active_document` dari assistant message historis.
+- Confirm jawaban AI yang berisi numbered list dengan sub-bullet dirender sebagai nested list yang benar di chat utama dan widget.
 
 8. Jalankan SQL manual untuk intent routing
 - Jalankan:

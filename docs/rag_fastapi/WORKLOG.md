@@ -35,6 +35,15 @@ Risks:
   - `jenis_file_nama` dan `tanggal` kini ikut dipass ke `context_sources`
   - context block generator kini menuliskan `Tanggal` dan `Jenis Dokumen` secara eksplisit
   - fallback `Jenis Dokumen` memakai `jenis_file_kode` jika nama jenis kosong
+- Diagnosis session riil `ai_chat_sessions.id = 41` menunjukkan explicit nomor dokumen belum ter-resolve ke `doc_id`, sehingga retrieval memilih dokumen lain lalu `active_document` terkunci ke dokumen yang salah.
+- Perbaikan Laravel:
+  - explicit nomor/judul dokumen kini di-resolve sebelum retrieval
+  - query explicit dokumen otomatis bypass mode katalog
+  - `active_document` hanya diupdate jika explicit match atau skor dokumen utama cukup dominan
+  - jika `session.meta.active_document` sudah eksplisit `null`, controller tidak lagi fallback ke histori assistant lama
+- Perbaikan renderer frontend:
+  - parser markdown list di chat utama dan widget kini mendukung nested ordered/unordered list
+  - kasus `1. ...` yang memiliki sub-bullet `* ...` tidak lagi me-reset numbering menjadi `1` pada setiap item berikutnya
 
 ---
 
