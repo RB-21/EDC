@@ -182,6 +182,25 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Renderer jawaban AI di halaman chat utama dan widget kini menangani nested markdown list (`ol` + `ul`) dengan benar.
 - Tujuan: mencegah numbering `1, 2, 3` restart ke `1` setiap kali ada sub-bullet `* ...` di bawah item bernomor.
 - Tombol `saran pertanyaan lanjutan` di chat utama kini aman untuk teks yang mengandung tanda kutip ganda karena nilai atribut `data-question` sudah di-escape sesuai konteks HTML attribute.
+- Normalizer lama untuk daftar tanggal Indonesia yang mengubah numbered list menjadi bullet sudah dihapus agar UI mengikuti format asli AI dan tidak lagi menghasilkan campuran bullet + angka.
+
+31. Response mode routing for consistent answer formatting
+- Laravel kini menentukan `response_mode` sebelum query dikirim ke FastAPI.
+- Mode yang didukung:
+  - `paragraph`
+  - `bullet_list`
+  - `numbered_list`
+  - `table`
+- Admin dapat mengatur:
+  - default response mode
+  - pattern pertanyaan untuk `table`
+  - pattern pertanyaan untuk `numbered_list`
+  - pattern pertanyaan untuk `bullet_list`
+- FastAPI menerima `response_mode` + `response_mode_instruction` lalu memperkuat prompt runtime agar format jawaban lebih konsisten.
+- Service Python memiliki normalisasi ringan untuk top-level list agar model yang mencampur bullet dan numbering tetap dirapikan sesuai mode.
+- Seed SQL manual baru:
+  - `docs/rag_fastapi/sql/2026_05_07_ai_response_mode_settings.sql`
+- Hotfix: jalur simpan assistant message pada query RAG kini sudah meng-capture `$responseMode` dengan benar di closure transaksi.
   - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
 - EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
 - Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.

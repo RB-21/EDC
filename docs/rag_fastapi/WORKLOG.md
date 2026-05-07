@@ -1,5 +1,47 @@
 # Worklog
 
+## 2026-05-07 15:20-16:05 (Asia/Jakarta)
+Scope:
+- Menambahkan arsitektur `response_mode` untuk meningkatkan konsistensi format jawaban AI.
+- Mode jawaban kini ditentukan di Laravel sebelum prompt dikirim ke FastAPI:
+  - `paragraph`
+  - `bullet_list`
+  - `numbered_list`
+  - `table`
+- Menambahkan pengaturan admin untuk pattern response mode di dashboard EDC.
+- Menambahkan instruksi format jawaban khusus ke prompt runtime FastAPI.
+- Menambahkan post-processor ringan di service Python untuk menormalkan top-level list ketika model mencampur bullet dan numbering pada level yang sama.
+- Menghapus normalizer frontend lama yang mengubah numbered date list menjadi bullet karena menyebabkan hasil campuran bullet/angka.
+
+Files:
+- `app/Http/Controllers/Admin/RagController.php`
+- `app/Services/RagService.php`
+- `resources/views/admin/rag/settings.blade.php`
+- `resources/views/admin/rag/chat.blade.php`
+- `resources/views/partials/n4ra-assistance-widget.blade.php`
+- `docs/rag_fastapi/sql/2026_05_07_ai_response_mode_settings.sql`
+- `EDC AI RAG/main.py`
+- `EDC AI RAG/app/embedding.py`
+- `EDC AI RAG/app/models.py`
+- `docs/rag_fastapi/WORKLOG.md`
+- `docs/rag_fastapi/HANDOVER_STATUS.md`
+- `docs/rag_fastapi/NEXT_STEPS.md`
+
+Verification:
+- `php -l app/Http/Controllers/Admin/RagController.php`
+- `php -l app/Services/RagService.php`
+- `php -l resources/views/admin/rag/settings.blade.php`
+- `py_compile` untuk:
+  - `EDC AI RAG/main.py`
+  - `EDC AI RAG/app/embedding.py`
+  - `EDC AI RAG/app/models.py`
+
+Risks:
+- Konsistensi format sudah jauh lebih baik, tetapi prompt aktif di database masih bisa memengaruhi gaya akhir jika instruksi manualnya bertabrakan dengan `response_mode`.
+- Mode `table` saat ini masih mengandalkan kepatuhan model; normalisasi backend baru diterapkan untuk `bullet_list` dan `numbered_list`, belum untuk tabel.
+- SQL manual baru perlu dijalankan di environment target agar setting response mode muncul di dashboard dengan default yang lengkap.
+- Hotfix setelah implementasi: `$responseMode` sempat belum ikut di-capture ke closure transaksi pada jalur query RAG, memicu error `Undefined variable $responseMode`; sudah diperbaiki.
+
 ## 2026-05-06 11:05-11:45 (Asia/Jakarta)
 Scope:
 - Menerapkan arsitektur intent routing yang lebih rapi untuk chat RAG:
@@ -45,6 +87,7 @@ Risks:
   - parser markdown list di chat utama dan widget kini mendukung nested ordered/unordered list
   - kasus `1. ...` yang memiliki sub-bullet `* ...` tidak lagi me-reset numbering menjadi `1` pada setiap item berikutnya
   - tombol `saran pertanyaan lanjutan` di chat utama kini meng-escape nilai `data-question` dengan aman sehingga teks yang mengandung tanda kutip ganda tetap utuh saat diklik
+  - normalizer lama yang mengubah numbered date list (`1. 16 Februari ...`) menjadi bullet dihapus karena menyebabkan output campuran bullet/angka pada variasi tanggal seperti `20, 23, dan 24 Maret`
 
 ---
 

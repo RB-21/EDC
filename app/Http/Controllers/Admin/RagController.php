@@ -51,6 +51,7 @@ class RagController extends Controller
         $promptTemplate = $this->getRagPromptTemplate();
         $promptRules = $this->getRagPromptRules();
         $intentRoutingSettings = $this->getIntentRoutingSettings();
+        $responseModeSettings = $this->getResponseModeSettings();
 
         return view('admin.rag.settings', [
             'promptTemplate' => $promptTemplate,
@@ -58,6 +59,10 @@ class RagController extends Controller
             'intentActiveDocumentContextEnabled' => $intentRoutingSettings['enable_active_document_context'],
             'intentCatalogPatterns' => $intentRoutingSettings['catalog_patterns'],
             'intentActiveDocumentReferencePatterns' => $intentRoutingSettings['active_document_reference_patterns'],
+            'responseModeDefault' => $responseModeSettings['default_mode'],
+            'responseModeTablePatterns' => $responseModeSettings['table_patterns'],
+            'responseModeNumberedListPatterns' => $responseModeSettings['numbered_list_patterns'],
+            'responseModeBulletListPatterns' => $responseModeSettings['bullet_list_patterns'],
         ]);
     }
 
@@ -79,6 +84,10 @@ class RagController extends Controller
             'intent_catalog_patterns' => 'nullable|string|max:20000',
             'intent_active_document_reference_patterns' => 'nullable|string|max:12000',
             'intent_enable_active_document_context' => 'nullable|boolean',
+            'response_mode_default' => 'required|string|in:paragraph,bullet_list,numbered_list,table',
+            'response_mode_table_patterns' => 'nullable|string|max:16000',
+            'response_mode_numbered_list_patterns' => 'nullable|string|max:16000',
+            'response_mode_bullet_list_patterns' => 'nullable|string|max:16000',
         ]);
 
         $template = (string) $request->input('prompt_template');
@@ -88,6 +97,10 @@ class RagController extends Controller
         $intentEnableActiveDocumentContext = $request->has('intent_enable_active_document_context')
             ? $request->boolean('intent_enable_active_document_context')
             : false;
+        $responseModeDefault = (string) $request->input('response_mode_default', 'paragraph');
+        $responseModeTablePatterns = trim((string) $request->input('response_mode_table_patterns', ''));
+        $responseModeNumberedListPatterns = trim((string) $request->input('response_mode_numbered_list_patterns', ''));
+        $responseModeBulletListPatterns = trim((string) $request->input('response_mode_bullet_list_patterns', ''));
 
         // Wajib ada placeholder agar template valid untuk runtime.
         foreach (['{{CONTEXT_BLOCK}}', '{{QUESTION}}'] as $requiredPlaceholder) {
@@ -136,6 +149,38 @@ class RagController extends Controller
             [
                 'value' => $intentActiveDocumentReferencePatterns,
                 'description' => 'Pattern referensi ke dokumen aktif (regex/frase per baris)',
+            ]
+        );
+
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_response_mode_default'],
+            [
+                'value' => $responseModeDefault,
+                'description' => 'Mode format jawaban default untuk RAG generation',
+            ]
+        );
+
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_response_mode_table_patterns'],
+            [
+                'value' => $responseModeTablePatterns,
+                'description' => 'Pattern pertanyaan yang sebaiknya dijawab dalam format tabel',
+            ]
+        );
+
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_response_mode_numbered_list_patterns'],
+            [
+                'value' => $responseModeNumberedListPatterns,
+                'description' => 'Pattern pertanyaan yang sebaiknya dijawab dalam numbered list',
+            ]
+        );
+
+        AiSetting::updateOrCreate(
+            ['key' => 'rag_response_mode_bullet_list_patterns'],
+            [
+                'value' => $responseModeBulletListPatterns,
+                'description' => 'Pattern pertanyaan yang sebaiknya dijawab dalam bullet list',
             ]
         );
 
@@ -194,6 +239,7 @@ class RagController extends Controller
                     'content' => (string) $message->message,
                     'sources' => $meta['sources'] ?? [],
                     'follow_up_questions' => $meta['follow_up_questions'] ?? [],
+                    'response_mode' => (string) ($meta['response_mode'] ?? ''),
                     'usage' => [
                         'prompt_tokens' => (int) ($message->prompt_tokens ?? 0),
                         'completion_tokens' => (int) ($message->completion_tokens ?? 0),
@@ -340,6 +386,9 @@ class RagController extends Controller
             $session = $existingSession ?: $this->resolveSession($user->id, $request->input('session_id'), $question, $selectedModel);
             $promptTemplate = $this->getRagPromptTemplate();
             $promptRules = $this->getRagPromptRules();
+            $responseModeSettings = $this->getResponseModeSettings();
+            $responseMode = $this->resolveResponseMode($question, $responseModeSettings, $routingContext);
+            $responseModeInstruction = $this->buildResponseModeInstruction($responseMode);
             $effectiveDocId = $routingContext['resolved_doc_id'] ?? $requestedDocId;
 
             $result = $this->ragService->query(
@@ -350,7 +399,9 @@ class RagController extends Controller
                 $selectedModel,
                 null,
                 $promptTemplate,
-                $promptRules
+                $promptRules,
+                $responseMode,
+                $responseModeInstruction
             );
 
             if (($result['error'] ?? false) === true) {
@@ -395,7 +446,8 @@ class RagController extends Controller
                 $totalTokens,
                 $newBalance,
                 $activeDocument,
-                $routingContext
+                $routingContext,
+                $responseMode
             ) {
                 AiChatMessage::create([
                     'session_id' => $session->id,
@@ -428,6 +480,7 @@ class RagController extends Controller
                             'matched_active_document_reference' => (bool) ($routingContext['matched_active_document_reference'] ?? false),
                             'matched_explicit_document_reference' => (bool) ($routingContext['matched_explicit_document_reference'] ?? false),
                         ],
+                        'response_mode' => $responseMode,
                     ],
                 ]);
 
@@ -459,6 +512,7 @@ class RagController extends Controller
             $result['token_balance'] = $newBalance;
             $result['model'] = $selectedModel;
             $result['follow_up_questions'] = $followUpQuestions;
+            $result['response_mode'] = $responseMode;
 
             return response()->json($result);
         } catch (\Exception $e) {
@@ -779,15 +833,16 @@ class RagController extends Controller
                     'sources' => [],
                     'follow_up_questions' => $followUpQuestions,
                     'active_document' => $activeDocument,
-                        'routing' => [
-                            'mode' => 'catalog',
-                            'effective_doc_id' => $activeDocument['doc_id'] ?? null,
-                            'used_active_document_context' => (bool) ($routingContext['used_active_document_context'] ?? false),
-                            'matched_active_document_reference' => (bool) ($routingContext['matched_active_document_reference'] ?? false),
-                            'matched_explicit_document_reference' => (bool) ($routingContext['matched_explicit_document_reference'] ?? false),
-                        ],
+                    'routing' => [
+                        'mode' => 'catalog',
+                        'effective_doc_id' => $activeDocument['doc_id'] ?? null,
+                        'used_active_document_context' => (bool) ($routingContext['used_active_document_context'] ?? false),
+                        'matched_active_document_reference' => (bool) ($routingContext['matched_active_document_reference'] ?? false),
+                        'matched_explicit_document_reference' => (bool) ($routingContext['matched_explicit_document_reference'] ?? false),
                     ],
-                ]);
+                    'response_mode' => 'numbered_list',
+                ],
+            ]);
 
             $sessionAttributes = [
                 'model' => $selectedModel,
@@ -817,6 +872,7 @@ class RagController extends Controller
             'token_balance' => (int) ($user->ai_token_balance ?? 0),
             'model' => $selectedModel,
             'follow_up_questions' => $followUpQuestions,
+            'response_mode' => 'numbered_list',
         ]);
     }
 
@@ -916,6 +972,29 @@ class RagController extends Controller
         ];
     }
 
+    private function getResponseModeSettings(): array
+    {
+        return [
+            'default_mode' => $this->getEnumAiSetting(
+                'rag_response_mode_default',
+                ['paragraph', 'bullet_list', 'numbered_list', 'table'],
+                'paragraph'
+            ),
+            'table_patterns' => $this->getTextAiSetting(
+                'rag_response_mode_table_patterns',
+                $this->getDefaultResponseModeTablePatterns()
+            ),
+            'numbered_list_patterns' => $this->getTextAiSetting(
+                'rag_response_mode_numbered_list_patterns',
+                $this->getDefaultResponseModeNumberedListPatterns()
+            ),
+            'bullet_list_patterns' => $this->getTextAiSetting(
+                'rag_response_mode_bullet_list_patterns',
+                $this->getDefaultResponseModeBulletListPatterns()
+            ),
+        ];
+    }
+
     private function getDefaultCatalogPatterns(): string
     {
         return implode("\n", [
@@ -943,6 +1022,33 @@ class RagController extends Controller
         ]);
     }
 
+    private function getDefaultResponseModeTablePatterns(): string
+    {
+        return implode("\n", [
+            '/\b(?:tabel|tabulasi|kolom|matrix|matriks)\b/u',
+            '/\b(?:perbandingan|bandingkan|komparasi)\b/u',
+            '/\b(?:jadwal|schedule)\b/u',
+        ]);
+    }
+
+    private function getDefaultResponseModeNumberedListPatterns(): string
+    {
+        return implode("\n", [
+            '/\b(?:langkah|tahapan|urutan|prosedur|cara)\b/u',
+            '/\b(?:kapan saja|tanggal apa saja|tanggal cuti bersama|hari libur nasional|cuti bersama)\b/u',
+            '/\b(?:siapa saja|apa saja)\b/u',
+            '/\b(?:sebutkan|daftarkan|rincikan)\b/u',
+        ]);
+    }
+
+    private function getDefaultResponseModeBulletListPatterns(): string
+    {
+        return implode("\n", [
+            '/\b(?:ringkas|ringkasan|poin utama|poin-poin utama|highlight)\b/u',
+            '/\b(?:key elements|dominant gestures|ketentuan|persyaratan|kriteria|cakupan)\b/u',
+        ]);
+    }
+
     private function getTextAiSetting(string $key, string $default = ''): string
     {
         $value = trim((string) AiSetting::getValue($key, $default));
@@ -957,6 +1063,73 @@ class RagController extends Controller
         }
 
         return in_array(Str::lower((string) $value), ['1', 'true', 'yes', 'on'], true);
+    }
+
+    private function getEnumAiSetting(string $key, array $allowed, string $default): string
+    {
+        $value = Str::lower(trim((string) AiSetting::getValue($key, $default)));
+        return in_array($value, $allowed, true) ? $value : $default;
+    }
+
+    private function resolveResponseMode(string $question, array $responseModeSettings, array $routingContext = []): string
+    {
+        $normalized = Str::lower(trim($question));
+        $normalized = preg_replace('/\s+/', ' ', $normalized ?? '') ?? '';
+
+        if (($routingContext['matched_explicit_document_reference'] ?? false) === true && preg_match('/\b(?:tampilkan isi|ringkas)\b/u', $normalized)) {
+            return 'bullet_list';
+        }
+
+        if ($this->matchesConfiguredPatterns($normalized, (string) ($responseModeSettings['table_patterns'] ?? ''))) {
+            return 'table';
+        }
+
+        if ($this->matchesConfiguredPatterns($normalized, (string) ($responseModeSettings['numbered_list_patterns'] ?? ''))) {
+            return 'numbered_list';
+        }
+
+        if ($this->matchesConfiguredPatterns($normalized, (string) ($responseModeSettings['bullet_list_patterns'] ?? ''))) {
+            return 'bullet_list';
+        }
+
+        return (string) ($responseModeSettings['default_mode'] ?? 'paragraph');
+    }
+
+    private function buildResponseModeInstruction(string $responseMode): string
+    {
+        switch ($responseMode) {
+            case 'table':
+                return implode("\n", [
+                    'Gunakan format jawaban utama berupa tabel markdown yang valid.',
+                    'Gunakan tabel hanya untuk konten utama jawaban, dengan header kolom yang jelas dan konsisten.',
+                    'Jika perlu catatan tambahan, letakkan setelah tabel dalam 1 paragraf singkat.',
+                    'Jangan campur bullet list dan numbered list pada level utama jika tabel sudah dipakai.',
+                ]);
+
+            case 'numbered_list':
+                return implode("\n", [
+                    'Gunakan numbered list untuk poin-poin utama jawaban.',
+                    'Semua item level utama WAJIB menggunakan nomor berurutan 1., 2., 3., dan seterusnya.',
+                    'Jika ada subpoin di bawah item utama, gunakan bullet list yang diindentasi.',
+                    'Jangan campur bullet dan numbered list pada level utama yang sama.',
+                ]);
+
+            case 'bullet_list':
+                return implode("\n", [
+                    'Gunakan bullet list untuk poin-poin utama jawaban.',
+                    'Semua item level utama WAJIB menggunakan bullet list, bukan numbering.',
+                    'Jika ada subpoin, tetap gunakan bullet yang diindentasi secara konsisten.',
+                    'Jangan campur bullet dan numbered list pada level utama yang sama.',
+                ]);
+
+            case 'paragraph':
+            default:
+                return implode("\n", [
+                    'Gunakan paragraf terstruktur sebagai format utama jawaban.',
+                    'Hindari bullet list atau numbered list pada level utama kecuali benar-benar diperlukan oleh konteks.',
+                    'Jika perlu penekanan, gunakan maksimal 1 daftar singkat dan tetap jaga jawaban ringkas serta rapi.',
+                ]);
+        }
     }
 
     private function buildIntentRoutingContext(

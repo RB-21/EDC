@@ -132,6 +132,82 @@
                         @enderror
                     </div>
 
+                    <hr>
+
+                    <h5 class="mb-3">Response Mode Settings</h5>
+                    <p class="text-muted mb-3">
+                        Pengaturan ini membantu backend memilih format jawaban utama yang lebih konsisten
+                        sebelum prompt dikirim ke model. Mode yang tersedia:
+                        <code>paragraph</code>, <code>bullet_list</code>, <code>numbered_list</code>, dan <code>table</code>.
+                    </p>
+
+                    <div class="form-group">
+                        <label for="response_mode_default">Default Response Mode</label>
+                        <select
+                            id="response_mode_default"
+                            name="response_mode_default"
+                            class="form-control @error('response_mode_default') is-invalid @enderror"
+                        >
+                            @php($selectedResponseMode = old('response_mode_default', $responseModeDefault ?? 'paragraph'))
+                            <option value="paragraph" {{ $selectedResponseMode === 'paragraph' ? 'selected' : '' }}>paragraph</option>
+                            <option value="bullet_list" {{ $selectedResponseMode === 'bullet_list' ? 'selected' : '' }}>bullet_list</option>
+                            <option value="numbered_list" {{ $selectedResponseMode === 'numbered_list' ? 'selected' : '' }}>numbered_list</option>
+                            <option value="table" {{ $selectedResponseMode === 'table' ? 'selected' : '' }}>table</option>
+                        </select>
+                        @error('response_mode_default')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="response_mode_table_patterns">Table Response Patterns</label>
+                        <textarea
+                            id="response_mode_table_patterns"
+                            name="response_mode_table_patterns"
+                            class="form-control @error('response_mode_table_patterns') is-invalid @enderror"
+                            rows="8"
+                        >{{ old('response_mode_table_patterns', $responseModeTablePatterns ?? '') }}</textarea>
+                        <small class="form-text text-muted">
+                            Gunakan untuk pertanyaan yang paling nyaman dijawab dalam tabel, seperti
+                            <code>perbandingan</code>, <code>jadwal</code>, atau permintaan tabel eksplisit.
+                        </small>
+                        @error('response_mode_table_patterns')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="response_mode_numbered_list_patterns">Numbered List Response Patterns</label>
+                        <textarea
+                            id="response_mode_numbered_list_patterns"
+                            name="response_mode_numbered_list_patterns"
+                            class="form-control @error('response_mode_numbered_list_patterns') is-invalid @enderror"
+                            rows="8"
+                        >{{ old('response_mode_numbered_list_patterns', $responseModeNumberedListPatterns ?? '') }}</textarea>
+                        <small class="form-text text-muted">
+                            Gunakan untuk pertanyaan yang meminta urutan, daftar tanggal, langkah, atau rincian yang lebih nyaman dibaca dengan nomor.
+                        </small>
+                        @error('response_mode_numbered_list_patterns')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="response_mode_bullet_list_patterns">Bullet List Response Patterns</label>
+                        <textarea
+                            id="response_mode_bullet_list_patterns"
+                            name="response_mode_bullet_list_patterns"
+                            class="form-control @error('response_mode_bullet_list_patterns') is-invalid @enderror"
+                            rows="8"
+                        >{{ old('response_mode_bullet_list_patterns', $responseModeBulletListPatterns ?? '') }}</textarea>
+                        <small class="form-text text-muted">
+                            Gunakan untuk pertanyaan yang meminta ringkasan poin utama, ketentuan, atau highlight dokumen.
+                        </small>
+                        @error('response_mode_bullet_list_patterns')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save mr-1"></i> Simpan Pengaturan AI
                     </button>

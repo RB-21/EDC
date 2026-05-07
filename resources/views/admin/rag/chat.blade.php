@@ -691,11 +691,7 @@
 
             function formatAnswer(text) {
                 if (!text) return '';
-                const normalizedText = String(text).replace(
-                    /^(\d+)\.\s+(\d{1,2}\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\b.*)$/gim,
-                    '- $2'
-                );
-                let html = $('<div/>').text(normalizedText).html();
+                let html = $('<div/>').text(String(text)).html();
                 html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
                 html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
                 html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');

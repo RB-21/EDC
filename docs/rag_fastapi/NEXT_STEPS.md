@@ -12,6 +12,9 @@
 - Buka menu `AI Prompt Settings`.
 - Ubah `Prompt Template` dan `Prompt Rules`, simpan, lalu kirim 1 query.
 - Verifikasi perubahan perilaku prompt benar-benar mengikuti setting dari EDC.
+- Jalankan juga SQL:
+  - `docs/rag_fastapi/sql/2026_05_07_ai_response_mode_settings.sql`
+- Verifikasi field response mode baru tampil di halaman settings dan nilai default-nya ter-seed.
 
 3. Reindex ke collection Vertex baru
 - Collection aktif sekarang `edc_documents_vertex_v1`.
@@ -54,6 +57,11 @@
 - Confirm session yang `active_document`-nya sudah dikosongkan tidak fallback lagi ke `active_document` dari assistant message historis.
 - Confirm jawaban AI yang berisi numbered list dengan sub-bullet dirender sebagai nested list yang benar di chat utama dan widget.
 - Confirm klik `saran pertanyaan lanjutan` yang mengandung tanda kutip ganda tetap mengisi seluruh teks pertanyaan tanpa memotong isi di dalam kutip.
+- Confirm numbered date list dari AI tetap tampil sebagai numbered list utuh di UI, tanpa dikonversi sebagian menjadi bullet.
+- Confirm `response_mode=numbered_list` membuat jawaban daftar tanggal/langkah tetap konsisten memakai angka di semua item level utama.
+- Confirm `response_mode=bullet_list` membuat ringkasan/poin utama tidak lagi kadang keluar dengan numbering.
+- Confirm `response_mode=table` menghasilkan tabel markdown yang valid untuk kasus yang memang tabular.
+- Confirm jalur query RAG normal dan jalur katalog sama-sama menyimpan `response_mode` tanpa memicu error runtime.
 
 8. Jalankan SQL manual untuk intent routing
 - Jalankan:

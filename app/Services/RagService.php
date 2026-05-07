@@ -89,7 +89,18 @@ class RagService
      * @param string|null $model AI model to use (e.g. gemini-2.0-flash)
      * @return array
      */
-    public function query($question, $jenisFile = null, $bagian = null, $docId = null, $model = null, $instruction = null, $promptTemplate = null, $promptRules = null)
+    public function query(
+        $question,
+        $jenisFile = null,
+        $bagian = null,
+        $docId = null,
+        $model = null,
+        $instruction = null,
+        $promptTemplate = null,
+        $promptRules = null,
+        $responseMode = null,
+        $responseModeInstruction = null
+    )
     {
         try {
             $body = ['question' => $question];
@@ -101,6 +112,8 @@ class RagService
             if ($instruction) $body['instruction'] = $instruction;
             if ($promptTemplate) $body['prompt_template'] = $promptTemplate;
             if ($promptRules) $body['prompt_rules'] = $promptRules;
+            if ($responseMode) $body['response_mode'] = $responseMode;
+            if ($responseModeInstruction) $body['response_mode_instruction'] = $responseModeInstruction;
 
             Log::info('RAG query request', ['body' => $body]);
 
