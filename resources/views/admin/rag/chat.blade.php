@@ -654,6 +654,15 @@
                 return extracted || raw;
             }
 
+            function escapeHtml(text) {
+                return String(text || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
             function resetWelcomeMessage() {
                 chatContainer.html(
                     '<div class="chat-message ai">' +
@@ -1048,8 +1057,9 @@
                 let html = '<div class="followup-section">';
                 html += '<div class="followup-label"><i class="fas fa-lightbulb mr-1"></i>Saran pertanyaan lanjutan</div>';
                 uniqueQuestions.slice(0, 3).forEach(function (q) {
-                    html += '<button type="button" class="followup-btn" data-question="' + $('<div/>').text(q).html() + '">' +
-                        $('<div/>').text(q).html() +
+                    const safeQ = escapeHtml(q);
+                    html += '<button type="button" class="followup-btn" data-question="' + safeQ + '">' +
+                        safeQ +
                         '</button>';
                 });
                 html += '</div>';

@@ -53,6 +53,7 @@
 - Confirm `dokumen ini` tidak lagi terseret ke dokumen yang salah ketika session sebelumnya punya retrieval multi-dokumen dengan skor berdekatan.
 - Confirm session yang `active_document`-nya sudah dikosongkan tidak fallback lagi ke `active_document` dari assistant message historis.
 - Confirm jawaban AI yang berisi numbered list dengan sub-bullet dirender sebagai nested list yang benar di chat utama dan widget.
+- Confirm klik `saran pertanyaan lanjutan` yang mengandung tanda kutip ganda tetap mengisi seluruh teks pertanyaan tanpa memotong isi di dalam kutip.
 
 8. Jalankan SQL manual untuk intent routing
 - Jalankan:

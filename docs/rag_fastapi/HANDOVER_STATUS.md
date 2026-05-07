@@ -181,6 +181,7 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 30. Nested markdown list rendering
 - Renderer jawaban AI di halaman chat utama dan widget kini menangani nested markdown list (`ol` + `ul`) dengan benar.
 - Tujuan: mencegah numbering `1, 2, 3` restart ke `1` setiap kali ada sub-bullet `* ...` di bawah item bernomor.
+- Tombol `saran pertanyaan lanjutan` di chat utama kini aman untuk teks yang mengandung tanda kutip ganda karena nilai atribut `data-question` sudah di-escape sesuai konteks HTML attribute.
   - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
 - EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
 - Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.

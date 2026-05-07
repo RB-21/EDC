@@ -44,6 +44,7 @@ Risks:
 - Perbaikan renderer frontend:
   - parser markdown list di chat utama dan widget kini mendukung nested ordered/unordered list
   - kasus `1. ...` yang memiliki sub-bullet `* ...` tidak lagi me-reset numbering menjadi `1` pada setiap item berikutnya
+  - tombol `saran pertanyaan lanjutan` di chat utama kini meng-escape nilai `data-question` dengan aman sehingga teks yang mengandung tanda kutip ganda tetap utuh saat diklik
 
 ---
 
