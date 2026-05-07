@@ -161,6 +161,15 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Frontend chat utama tidak lagi mengirim potongan jawaban AI sebelumnya ke `question_context`.
 - Riwayat yang dikirim ke backend kini hanya berisi daftar pertanyaan user sebelumnya + catatan agar model mengikuti format dari system prompt aktif.
 - Tujuan: mengurangi efek model meniru format jawaban sebelumnya yang menyebabkan output kadang berubah dari tabel rapi menjadi list/format lain pada pertanyaan berikutnya.
+
+28. Metadata grounding fix for document identity
+- Service Python sekarang mengirim `jenis_file_nama` dan `tanggal` ke `context_sources` saat generate answer.
+- Context block untuk LLM kini memuat:
+  - `Judul`
+  - `Nomor`
+  - `Tanggal`
+  - `Jenis Dokumen`
+- Jika `jenis_file_nama` kosong, backend fallback ke `jenis_file_kode` agar model tidak mengisi `Jenis Dokumen` dengan `-` atau menebak dari `filename/pdf`.
   - `Prompt Rules`: aturan sistem, format output, ringkasan, dan follow-up questions
 - EDC mengirim kedua lapisan ini ke FastAPI pada setiap query.
 - Aturan hardcoded di FastAPI sudah diturunkan menjadi fallback saja, bukan sumber utama perilaku prompt.

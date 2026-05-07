@@ -31,6 +31,10 @@ Risks:
 - Sebelum SQL dijalankan, sistem masih aman karena ada fallback ke metadata jawaban assistant terakhir, tetapi state session belum sekuat mode full schema.
 - Hotfix setelah implementasi: jalur `catalog suggestion` sempat memicu `Undefined variable $activeDocument` di closure transaksi; sudah diperbaiki dengan capture variabel yang benar dan penyelarasan update session meta.
 - Risiko format jawaban yang drift karena model meniru output sebelumnya dikurangi dengan menghapus potongan jawaban AI lama dari `question_context`.
+- Perkuatan grounding metadata dokumen utama di service Python:
+  - `jenis_file_nama` dan `tanggal` kini ikut dipass ke `context_sources`
+  - context block generator kini menuliskan `Tanggal` dan `Jenis Dokumen` secara eksplisit
+  - fallback `Jenis Dokumen` memakai `jenis_file_kode` jika nama jenis kosong
 
 ---
 
