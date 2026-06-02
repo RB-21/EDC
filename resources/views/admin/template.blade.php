@@ -396,7 +396,7 @@
             })
       </script>
   @endif
-  @if (!request()->routeIs('admin.rag.chat'))
+  @if (auth()->user()->uRole->nama === 'admin' && !request()->routeIs('admin.rag.chat'))
     @include('partials.n4ra-assistance-widget')
   @endif
   @yield('scripts')

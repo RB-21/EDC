@@ -42,7 +42,7 @@ Route::get('update_password', [AuthController::class, 'update_password'])->name(
 Route::post('update_password', [AuthController::class, 'update_password_process'])->name('update_password_process');
 
 Route::middleware('auth')->group(function () {
-    Route::prefix('ai-assistance')->name('ai_assistance.')->group(function () {
+    Route::prefix('ai-assistance')->name('ai_assistance.')->middleware('auth.role:admin')->group(function () {
         Route::get('/sessions', [RagController::class, 'sessions'])->name('sessions');
         Route::post('/sessions', [RagController::class, 'createSession'])->name('sessions.create');
         Route::get('/sessions/{sessionId}/messages', [RagController::class, 'sessionMessages'])->name('sessions.messages');

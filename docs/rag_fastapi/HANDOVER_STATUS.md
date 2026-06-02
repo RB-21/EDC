@@ -1,6 +1,6 @@
 # Handover Status
 
-Last updated: 2026-05-06
+Last updated: 2026-06-02
 
 ## Current Objective
 Stabilize and evolve EDC AI Assistant into production-like chat:
@@ -209,10 +209,10 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Nama AI assistant pada UI admin diganti menjadi `N4R4 AI Assistance`.
 - Berlaku di sidebar admin, judul halaman chat, header chat card, sapaan default assistant, dan tombol kembali pada halaman setting prompt.
 
-25. Floating AI customer-service widget (all roles)
-- Ditambahkan widget melayang `N4R4 AI Assistance` pada template admin/user/operator/tamu.
+25. Floating AI customer-service widget (restricted to admin)
+- Ditambahkan widget melayang `N4R4 AI Assistance` pada template admin.
 - Widget dapat membuka percakapan, memuat riwayat session, dan mengirim query RAG langsung dari halaman mana pun.
-- Endpoint chat AI dibuat lintas role di group auth (`/ai-assistance/*`) dengan backend logic existing `RagController`.
+- Endpoint chat AI berada di group auth (`/ai-assistance/*`) dengan backend logic existing `RagController` dan dilindungi middleware `auth.role:admin`.
 - Token balance, model allowlist user, dan persistence session tetap mengikuti mekanisme yang sama seperti chat admin.
 
 26. Floating widget overflow fix

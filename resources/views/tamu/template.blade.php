@@ -380,7 +380,6 @@
           })
       </script>
   @endif
-  @include('partials.n4ra-assistance-widget')
   @yield('scripts')
 </body>
 </html>

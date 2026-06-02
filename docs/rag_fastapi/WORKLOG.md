@@ -1,5 +1,30 @@
 # Worklog
 
+## 2026-06-02 11:50-12:00 (Asia/Jakarta)
+Scope:
+- Membatasi akses widget floating N4R4 AI Assistance dan endpoint RAG hanya untuk role `admin`.
+- Menghapus widget dari layout templates non-admin (`user`, `operator`, `tamu`).
+- Menambahkan middleware `auth.role:admin` pada grup endpoint `/ai-assistance/*` di routes.
+
+Files:
+- `routes/web.php`
+- `resources/views/user/template.blade.php`
+- `resources/views/operator/template.blade.php`
+- `resources/views/tamu/template.blade.php`
+- `resources/views/admin/template.blade.php`
+- `docs/rag_fastapi/WORKLOG.md`
+- `docs/rag_fastapi/HANDOVER_STATUS.md`
+- `docs/rag_fastapi/NEXT_STEPS.md`
+
+Verification:
+- Widget dilepas dari view user, operator, tamu.
+- Route prefix `ai-assistance` dilindungi middleware `auth.role:admin`.
+
+Risks:
+- Pengguna dengan role non-admin yang mencoba mengakses endpoint `/ai-assistance/*` secara manual akan menerima respon abort 404.
+
+---
+
 ## 2026-05-07 15:20-16:05 (Asia/Jakarta)
 Scope:
 - Menambahkan arsitektur `response_mode` untuk meningkatkan konsistensi format jawaban AI.

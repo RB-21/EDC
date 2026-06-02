@@ -69,10 +69,12 @@
 - Verifikasi kolom `ai_chat_sessions.meta` sudah ada.
 - Verifikasi key `rag_intent_enable_active_document_context`, `rag_intent_catalog_patterns`, dan `rag_intent_active_document_reference_patterns` sudah ter-seed di `ai_settings`.
 
-9. Floating widget smoke test (all roles)
-- Buka halaman dashboard/dokumen pada role admin, user, operator, dan tamu.
-- Pastikan tombol floating `N4R4 AI Assistance` selalu tampil.
-- Kirim minimal 1 pertanyaan per role dan pastikan ada jawaban.
+9. Floating widget smoke test (admin only)
+- Buka halaman dashboard/dokumen pada role admin.
+- Pastikan tombol floating `N4R4 AI Assistance` tampil untuk admin.
+- Pastikan tombol floating `N4R4 AI Assistance` TIDAK tampil pada role user, operator, dan tamu.
+- Verifikasi bahwa role user, operator, dan tamu menerima respon abort 404 ketika mengakses endpoint `/ai-assistance/*` secara manual.
+- Kirim minimal 1 pertanyaan via admin widget dan pastikan ada jawaban.
 - Reload halaman dan pastikan history session widget tetap terbaca.
 - Verifikasi saldo token di widget ikut berubah setelah query sukses.
 - Verifikasi panel widget tidak overflow ke bawah pada desktop/mobile dan zoom 90%-125%.
