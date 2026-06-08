@@ -88,4 +88,9 @@ return [
         ))),
     ],
 
+    'wablas' => [
+        'token' => env('WABLAS_TOKEN', 'KXCwBNP19Q3L5O7AlNR3IXGMlZnYjUyCZRkg1uH916uRpIwKaXlNCXc2QvoeeuzH'),
+        'url' => env('WABLAS_URL', 'https://pati.wablas.com/api/v2/send-template'),
+    ],
+
 ];

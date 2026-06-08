@@ -95,6 +95,9 @@
 - Send query
 - Validate `ai_token_balance` decrement equals `usage.total_tokens`
 
+12. Wablas config verification
+- Pastikan pengiriman notifikasi via Wablas masih berfungsi normal dengan konfigurasi token/URL dari `.env`.
+
 ## Medium Priority
 1. Admin usage report page
 - Token usage per user/day

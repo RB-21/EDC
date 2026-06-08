@@ -318,8 +318,8 @@ class AuthController extends Controller
         $message_content .= 'Terima Kasih.';
         Http::withHeaders([
             'Content-Type' => 'application/json',
-            'Authorization' => 'KXCwBNP19Q3L5O7AlNR3IXGMlZnYjUyCZRkg1uH916uRpIwKaXlNCXc2QvoeeuzH'
-        ])->post('https://pati.wablas.com/api/v2/send-template', [
+            'Authorization' => config('services.wablas.token')
+        ])->post(config('services.wablas.url'), [
             'phone' => $phone,
             'message' => [
                 'title' => [

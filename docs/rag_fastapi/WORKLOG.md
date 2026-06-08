@@ -1,5 +1,29 @@
 # Worklog
 
+## 2026-06-08 10:50 (Asia/Jakarta)
+Scope:
+- Mengubah token Authorization dan API URL Wablas di `AuthController` agar dinamis menggunakan `.env`.
+- Menambahkan konfigurasi `wablas` di `config/services.php` yang membaca `WABLAS_TOKEN` dan `WABLAS_URL`.
+- Mendaftarkan `WABLAS_TOKEN` dan `WABLAS_URL` di `.env` (dengan value default) dan `.env.example`.
+
+Files:
+- `app/Http/Controllers/AuthController.php`
+- `config/services.php`
+- `.env`
+- `.env.example`
+- `docs/rag_fastapi/WORKLOG.md`
+- `docs/rag_fastapi/HANDOVER_STATUS.md`
+- `docs/rag_fastapi/NEXT_STEPS.md`
+
+Verification:
+- Token dan URL berhasil dilepaskan dari hardcode.
+- File config Laravel dan `.env` terkonfigurasi dengan benar.
+
+Risks:
+- Jika env tidak ter-load dengan benar di environment target, system akan menggunakan default fallback yang disiapkan di config.
+
+---
+
 ## 2026-06-02 11:50-12:00 (Asia/Jakarta)
 Scope:
 - Membatasi akses widget floating N4R4 AI Assistance dan endpoint RAG hanya untuk role `admin`.

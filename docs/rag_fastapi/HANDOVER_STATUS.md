@@ -1,6 +1,6 @@
 # Handover Status
 
-Last updated: 2026-06-02
+Last updated: 2026-06-08
 
 ## Current Objective
 Stabilize and evolve EDC AI Assistant into production-like chat:
@@ -9,6 +9,7 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - per-user token balance
 - per-user model access control
 - reliable restart + troubleshooting flow
+- configurable external APIs (Wablas, etc.)
 
 ## Completed
 1. RAG service recovery automation
@@ -256,6 +257,9 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Pertanyaan yang sifatnya umum/katalog dokumen (mis. `dokumen SOP apa saja`, `ada dokumen apa saja`, `dokumen SOP`) kini tidak langsung masuk jalur ringkasan satu dokumen.
 - Backend akan menjawab dengan daftar dokumen tersedia yang sudah ter-index, disaring berdasarkan jenis dokumen yang diminta dan hak akses user.
 - User kemudian diarahkan untuk memilih nomor/judul dokumen yang ingin diringkas lebih lanjut.
+
+34. Konfigurasi API Wablas via env
+- Authorization token dan API URL pada `AuthController` dipindahkan ke konfigurasi `services.wablas` dan dapat disesuaikan lewat `.env`.
 
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.
