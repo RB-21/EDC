@@ -258,9 +258,10 @@ Stabilize and evolve EDC AI Assistant into production-like chat:
 - Backend akan menjawab dengan daftar dokumen tersedia yang sudah ter-index, disaring berdasarkan jenis dokumen yang diminta dan hak akses user.
 - User kemudian diarahkan untuk memilih nomor/judul dokumen yang ingin diringkas lebih lanjut.
 
-34. Konfigurasi API Wablas via env & logging respon
-- Authorization token dan API URL pada `AuthController` dipindahkan ke konfigurasi `services.wablas` dan dapat disesuaikan lewat `.env`.
-- Menambahkan logging respon API Wablas (`\Log::info` / `\Log::error`) untuk mempermudah monitoring pengiriman notifikasi.
+34. Konfigurasi API Wablas via env & logging respon (Seluruh Codebase)
+- Seluruh token otorisasi dan URL API Wablas di `AuthController` dan `ProfileController` dipindahkan ke konfigurasi `services.wablas` dan dapat disesuaikan lewat `.env`.
+- Semua panggilan notifikasi (login, lupa password, ganti password) diperbarui dari cURL ke Laravel `Http` client.
+- Menambahkan logging respon API Wablas (`\Log::info` / `\Log::error`) untuk mempermudah monitoring pengiriman notifikasi di seluruh method tersebut.
 
 ## Known Constraints / Risks
 1. Legacy PHP dependency deprecation warnings still noisy on CLI.

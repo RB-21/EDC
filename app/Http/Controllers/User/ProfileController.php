@@ -11,6 +11,7 @@ use App\Models\UserBiasaDetail;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use hisorange\BrowserDetect\Parser as Browser;
 
@@ -104,10 +105,11 @@ class ProfileController extends Controller
         $message_content .= "Jika ini memang Anda, Anda tidak perlu melakukan apa-apa.\n";
         $message_content .= "Jika bukan, silahkan ubah segera password dan hubungi Sub Bagian Pengadaan dan TI.\n";
         $message_content .= "Terima Kasih.";
-        $curl = curl_init();
-        $token = "jQwrbZEkzufjrqhBWNTg9gEDHFVMzSLaSg37I5UslLTLtDwuPPTTxaBsyz5RrgFU.hXitjokR";
-        $payload = [
-            "data" => [
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'Authorization' => config('services.wablas.token_message')
+        ])->post(config('services.wablas.url'), [
+            'data' => [
                 [
                     'phone' => $phone,
                     'message' => [
@@ -125,24 +127,19 @@ class ProfileController extends Controller
                     ],
                 ]
             ]
-        ];
-        curl_setopt(
-            $curl,
-            CURLOPT_HTTPHEADER,
-            array(
-                "Authorization: $token",
-                "Content-Type: application/json"
-            )
-        );
-        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "POST");
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($curl, CURLOPT_URL,  "https://pati.wablas.com/api/v2/send-template");
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+        ]);
 
-        $result = curl_exec($curl);
-        curl_close($curl);
+        if ($response->successful()) {
+            \Log::info('Wablas template security notification (action: ' . $aksi . ') sent successfully to ' . $phone, [
+                'response' => $response->json()
+            ]);
+        } else {
+            \Log::error('Failed to send Wablas template security notification (action: ' . $aksi . ') to ' . $phone, [
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+        }
+
         return 1;
     }
 }

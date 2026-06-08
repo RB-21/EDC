@@ -193,33 +193,29 @@ class AuthController extends Controller
         $message_content .= "Jika bukan, silahkan ubah segera password dan hubungi Sub Bagian Teknologi Informasi.\n";
         $message_content .= "Terima Kasih.\n\n";
         $message_content .= "Silakan akses EDC: https://edc.ptpn4.com";
-        $curl = curl_init();
-        $token = "jQwrbZEkzufjrqhBWNTg9gEDHFVMzSLaSg37I5UslLTLtDwuPPTTxaBsyz5RrgFU.hXitjokR";
-        $payload = [
-            "data" => [
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'Authorization' => config('services.wablas.token_message')
+        ])->post(config('services.wablas.url_message'), [
+            'data' => [
                 [
                     'phone' => $phone,
                     'message' => $message_content
                 ]
             ]
-        ];
-        curl_setopt(
-            $curl,
-            CURLOPT_HTTPHEADER,
-            array(
-                "Authorization: $token",
-                "Content-Type: application/json"
-            )
-        );
-        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "POST");
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($curl, CURLOPT_URL,  "https://pati.wablas.com/api/v2/send-message");
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+        ]);
 
-        $result = curl_exec($curl);
-        curl_close($curl);
+        if ($response->successful()) {
+            \Log::info('Wablas reset password message sent successfully to ' . $phone, [
+                'response' => $response->json()
+            ]);
+        } else {
+            \Log::error('Failed to send Wablas reset password message to ' . $phone, [
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+        }
+
         return 1;
     }
 
@@ -367,33 +363,29 @@ class AuthController extends Controller
         $message_content .= "Jika bukan, silahkan ubah segera password dan hubungi Sub Bagian Teknologi Informasi.\n";
         $message_content .= "Terima Kasih.\n\n";
         $message_content .= "Silakan akses EDC: https://edc.ptpn4.com";
-        $curl = curl_init();
-        $token = "jQwrbZEkzufjrqhBWNTg9gEDHFVMzSLaSg37I5UslLTLtDwuPPTTxaBsyz5RrgFU.hXitjokR";
-        $payload = [
-            "data" => [
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'Authorization' => config('services.wablas.token_message')
+        ])->post(config('services.wablas.url_message'), [
+            'data' => [
                 [
                     'phone' => $phone,
                     'message' => $message_content
                 ]
             ]
-        ];
-        curl_setopt(
-            $curl,
-            CURLOPT_HTTPHEADER,
-            array(
-                "Authorization: $token",
-                "Content-Type: application/json"
-            )
-        );
-        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "POST");
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($curl, CURLOPT_URL,  "https://pati.wablas.com/api/v2/send-message");
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+        ]);
 
-        $result = curl_exec($curl);
-        curl_close($curl);
+        if ($response->successful()) {
+            \Log::info('Wablas security notification (action: ' . $aksi . ') sent successfully to ' . $phone, [
+                'response' => $response->json()
+            ]);
+        } else {
+            \Log::error('Failed to send Wablas security notification (action: ' . $aksi . ') to ' . $phone, [
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+        }
+
         return 1;
     }
 

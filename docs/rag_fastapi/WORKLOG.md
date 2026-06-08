@@ -1,5 +1,30 @@
 # Worklog
 
+## 2026-06-08 11:05 (Asia/Jakarta)
+Scope:
+- Mengubah seluruh pemanggilan API Wablas di `AuthController` dan `ProfileController` agar menggunakan Laravel `Http` client dengan konfigurasi dinamis `.env`.
+- Menambahkan konfigurasi `token_message` dan `url_message` pada `config/services.php` beserta template-nya di `.env` dan `.env.example`.
+- Menambahkan logging respon sukses/gagal pada seluruh pemanggilan notifikasi keamanan/lupa password.
+
+Files:
+- `app/Http/Controllers/AuthController.php`
+- `app/Http/Controllers/User/ProfileController.php`
+- `config/services.php`
+- `.env`
+- `.env.example`
+- `docs/rag_fastapi/WORKLOG.md`
+- `docs/rag_fastapi/HANDOVER_STATUS.md`
+
+Verification:
+- Linting lulus.
+- Pemanggilan cURL digantikan dengan Laravel Http client.
+- Verifikasi pencarian grep memastikan tidak ada lagi token/URL Wablas yang hardcoded di controller.
+
+Risks:
+- Tidak ada risiko perubahan fungsionalitas, namun pastikan kredensial di env terisi dengan benar pada target environment.
+
+---
+
 ## 2026-06-08 10:55 (Asia/Jakarta)
 Scope:
 - Menambahkan logging untuk mencatat respon sukses (`Log::info`) atau gagal (`Log::error`) pada method `sendMessage` di `AuthController`.

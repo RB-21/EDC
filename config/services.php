@@ -91,6 +91,8 @@ return [
     'wablas' => [
         'token' => env('WABLAS_TOKEN', 'KXCwBNP19Q3L5O7AlNR3IXGMlZnYjUyCZRkg1uH916uRpIwKaXlNCXc2QvoeeuzH'),
         'url' => env('WABLAS_URL', 'https://pati.wablas.com/api/v2/send-template'),
+        'token_message' => env('WABLAS_TOKEN_MESSAGE', 'jQwrbZEkzufjrqhBWNTg9gEDHFVMzSLaSg37I5UslLTLtDwuPPTTxaBsyz5RrgFU.hXitjokR'),
+        'url_message' => env('WABLAS_URL_MESSAGE', 'https://pati.wablas.com/api/v2/send-message'),
     ],
 
 ];
