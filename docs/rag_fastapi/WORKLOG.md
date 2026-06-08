@@ -1,5 +1,23 @@
 # Worklog
 
+## 2026-06-08 10:55 (Asia/Jakarta)
+Scope:
+- Menambahkan logging untuk mencatat respon sukses (`Log::info`) atau gagal (`Log::error`) pada method `sendMessage` di `AuthController`.
+
+Files:
+- `app/Http/Controllers/AuthController.php`
+- `docs/rag_fastapi/WORKLOG.md`
+- `docs/rag_fastapi/HANDOVER_STATUS.md`
+
+Verification:
+- Linting lulus.
+- Log error/info menggunakan facade Laravel `\Log::` untuk mencatat payload respon API Wablas secara mendetail.
+
+Risks:
+- Menulis body error response langsung ke log file berpotensi mengekspos detail kredensial jika error mengembalikan debug trace dari server tujuan, namun aman secara internal.
+
+---
+
 ## 2026-06-08 10:50 (Asia/Jakarta)
 Scope:
 - Mengubah token Authorization dan API URL Wablas di `AuthController` agar dinamis menggunakan `.env`.

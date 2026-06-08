@@ -316,7 +316,7 @@ class AuthController extends Controller
         $message_content .= 'Jika ini memang Anda, Anda tidak perlu melakukan apa-apa.';
         $message_content .= 'Jika bukan, silahkan ubah segera password dan hubungi Sub Bagian Teknologi Informasi.';
         $message_content .= 'Terima Kasih.';
-        Http::withHeaders([
+        $response = Http::withHeaders([
             'Content-Type' => 'application/json',
             'Authorization' => config('services.wablas.token')
         ])->post(config('services.wablas.url'), [
@@ -337,6 +337,18 @@ class AuthController extends Controller
             'secret' => false,
             'priority' => true,
         ]);
+
+        if ($response->successful()) {
+            \Log::info('Wablas notification sent successfully to ' . $phone, [
+                'response' => $response->json()
+            ]);
+        } else {
+            \Log::error('Failed to send Wablas notification to ' . $phone, [
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+        }
+
         return 1;
     }
 
